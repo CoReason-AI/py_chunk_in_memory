@@ -11,14 +11,6 @@ packages = [{include = "py_chunk_in_memory", from = "src"}]
 python = ">=3.12, <3.15"
 loguru = "^0.7.2"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
-ruff = "^0.4.8"
-pre-commit = "^3.7.1"
-pytest-cov = "^5.0.0"
-mkdocs = "^1.6.0"
-mkdocs-material = "^9.5.26"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -43,3 +35,16 @@ classifiers = [
 Homepage = "https://github.com/CoReason-AI/py_chunk_in_memory"
 Repository = "https://github.com/CoReason-AI/py_chunk_in_memory"
 Documentation = "https://github.com/CoReason-AI/py_chunk_in_memory"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.2",
+    "ruff>=0.4.8",
+    "pre-commit>=3.7.1",
+    "pytest-cov>=5.0.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.26",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
