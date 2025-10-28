@@ -1,0 +1,5 @@
+site_name: py_chunk_in_memory
+theme:
+  name: material
+nav:
+  - Home: index.md
