@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 @dataclass
 class Chunk:
     """Represents a standardized segment of text after chunking."""
+
     text_for_generation: str
     text_for_embedding: Optional[str] = None
     chunk_id: UUID = field(default_factory=uuid4)
