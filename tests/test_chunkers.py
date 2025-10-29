@@ -9,7 +9,11 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 import pytest
-from py_chunk_in_memory.chunkers import BaseChunker, FixedSizeChunker, RecursiveCharacterChunker
+from py_chunk_in_memory.chunkers import (
+    BaseChunker,
+    FixedSizeChunker,
+    RecursiveCharacterChunker,
+)
 
 
 def test_base_chunker_can_be_instantiated_with_default_len_func():
@@ -280,7 +284,9 @@ def test_recursive_chunker_with_overlap():
 def test_recursive_chunker_long_word_fallback():
     """Test that a word longer than chunk_size is handled by the fallback."""
     text = "ThisIsAVeryLongWordWithoutAnySeparators"
-    chunker = RecursiveCharacterChunker(chunk_size=10, chunk_overlap=0, keep_separator=True)
+    chunker = RecursiveCharacterChunker(
+        chunk_size=10, chunk_overlap=0, keep_separator=True
+    )
     chunks = list(chunker.chunk(text))
 
     assert len(chunks) == 4

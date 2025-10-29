@@ -8,8 +8,9 @@
 #
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
+import re
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterable, List
+from typing import Any, Callable, Iterable, List, Optional
 
 from py_chunk_in_memory.models import Chunk
 
@@ -154,9 +155,6 @@ class FixedSizeChunker(BaseChunker):
                     start_char = start_of_overlap
         return chunks
 
-
-import re
-from typing import Any, Callable, Iterable, List, Optional
 
 class RecursiveCharacterChunker(BaseChunker):
     """
