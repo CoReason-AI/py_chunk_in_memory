@@ -81,6 +81,62 @@ def test_tiktoken_import_error():
     reload(tokenizers_module)
 
 
+def test_get_tiktoken_counter_invalid_model():
+    """Verify that an invalid model name raises an error for tiktoken."""
+    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
+
+    with pytest.raises(ValueError):
+        get_tiktoken_counter("invalid-model-name")
+
+
+def test_get_huggingface_counter_invalid_model():
+    """Verify that an invalid model name raises an error for Hugging Face."""
+    from py_chunk_in_memory.tokenizers import get_huggingface_counter
+
+    with pytest.raises(OSError):  # Hugging Face raises OSError for invalid models
+        get_huggingface_counter("invalid-model-name")
+
+
+def test_get_tiktoken_counter_special_characters():
+    """Test tiktoken counter with special characters and symbols."""
+    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
+
+    counter = get_tiktoken_counter("cl100k_base")
+    text = "!@#$%^&*()_+-=[]{};':\",./<>?`~"
+    # This is just a sample value; the exact token count is model-specific
+    assert counter(text) > 0
+
+
+def test_get_huggingface_counter_special_characters():
+    """Test Hugging Face counter with special characters and symbols."""
+    from py_chunk_in_memory.tokenizers import get_huggingface_counter
+
+    counter = get_huggingface_counter("gpt2")
+    text = "!@#$%^&*()_+-=[]{};':\",./<>?`~"
+    # This is just a sample value; the exact token count is model-specific
+    assert counter(text) > 0
+
+
+def test_get_tiktoken_counter_multilingual():
+    """Test tiktoken counter with multilingual text."""
+    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
+
+    counter = get_tiktoken_counter("cl100k_base")
+    text = "Hello, κόσμε! Bonjour, le monde! 안녕하세요, 세계!"
+    # This is just a sample value; the exact token count is model-specific
+    assert counter(text) > 10
+
+
+def test_get_huggingface_counter_multilingual():
+    """Test Hugging Face counter with multilingual text."""
+    from py_chunk_in_memory.tokenizers import get_huggingface_counter
+
+    counter = get_huggingface_counter("gpt2")
+    text = "Hello, κόσμε! Bonjour, le monde! 안녕하세요, 세계!"
+    # This is just a sample value; the exact token count is model-specific
+    assert counter(text) > 10
+
+
 def test_huggingface_import_error():
     """Verify an ImportError is raised if transformers is not installed."""
     with patch.dict(sys.modules, {"transformers": None}):
