@@ -23,7 +23,7 @@ def test_base_chunker_chunk_raises_not_implemented():
 
     class MinimalChunker(BaseChunker):
         def chunk(self, text: str, **kwargs):
-            return super().chunk(text, **kwargs)
+            return super().chunk(text, **kwargs)  # type: ignore [safe-super]
 
     chunker = MinimalChunker()
     with pytest.raises(NotImplementedError):
@@ -77,8 +77,9 @@ def test_fixed_size_chunker_with_overlap():
 
     assert chunks[0].start_char_index == 0
     assert chunks[1].start_char_index == 7  # 10 - 3
-    assert chunks[2].start_char_index == 14 # 7 + (10 - 3)
-    assert chunks[3].start_char_index == 21 # 14 + (10-3)
+    assert chunks[2].start_char_index == 14  # 7 + (10 - 3)
+    assert chunks[3].start_char_index == 21  # 14 + (10-3)
+
 
 def test_fixed_size_chunker_edge_case_empty_string():
     """Test chunking an empty string."""
