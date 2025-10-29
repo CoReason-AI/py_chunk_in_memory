@@ -58,7 +58,7 @@ jobs:
         shell: bash
 
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev,tokenizers
         shell: bash
 
       - name: Run tests
