@@ -73,3 +73,32 @@ def test_chunk_instantiation_with_all_fields():
     assert chunk.chunking_strategy_used == "fixed_size"
     assert chunk.hierarchical_context == h_context
     assert chunk.metadata == metadata
+
+
+def test_chunk_mutable_defaults_are_independent():
+    """Verify that mutable default fields are not shared between instances."""
+    chunk1 = Chunk(text_for_generation="test1")
+    chunk2 = Chunk(text_for_generation="test2")
+
+    # Modify metadata of the first chunk
+    chunk1.metadata["source"] = "doc1.txt"
+
+    # Ensure the second chunk's metadata is not affected
+    assert "source" not in chunk2.metadata
+    assert chunk1.metadata != chunk2.metadata
+
+    # Modify hierarchical_context of the first chunk
+    chunk1.hierarchical_context["H1"] = "Title 1"
+
+    # Ensure the second chunk's hierarchical_context is not affected
+    assert "H1" not in chunk2.hierarchical_context
+    assert chunk1.hierarchical_context != chunk2.hierarchical_context
+
+
+def test_chunk_id_and_source_id_are_unique():
+    """Verify that chunk_id and source_document_id are unique for new instances."""
+    chunk1 = Chunk(text_for_generation="test1")
+    chunk2 = Chunk(text_for_generation="test2")
+
+    assert chunk1.chunk_id != chunk2.chunk_id
+    assert chunk1.source_document_id != chunk2.source_document_id
