@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 import pytest
-from py_chunk_in_memory.chunkers import BaseChunker, FixedSizeChunker
+from py_chunk_in_memory.chunkers import BaseChunker, FixedSizeChunker, RecursiveCharacterChunker
 
 
 def test_base_chunker_can_be_instantiated_with_default_len_func():
@@ -242,3 +242,80 @@ def test_chunker_handles_single_char_exceeding_chunk_size():
     assert chunks[0].text_for_generation == "abc"
     assert chunks[1].text_for_generation == "X"
     assert chunks[2].text_for_generation == "def"
+
+
+def test_recursive_chunker_basic_no_overlap():
+    """Test basic merging of splits with no overlap."""
+    text = "Hi there. My name is Jules. What is your name?"
+    chunker = RecursiveCharacterChunker(
+        chunk_size=30, chunk_overlap=0, separators=[". "], keep_separator=True
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "Hi there. My name is Jules. "
+    assert chunks[1].text_for_generation == "What is your name?"
+
+
+def test_recursive_chunker_with_overlap():
+    """Test recursive chunking with a realistic overlap scenario."""
+    text = "a b c d e f g h i j k"
+    chunker = RecursiveCharacterChunker(
+        chunk_size=10, chunk_overlap=4, separators=[" "], keep_separator=True
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    # As determined by manual trace:
+    # Chunk 1: 'a b c d e ' (len 10)
+    # Overlap: 'd e ' (len 4)
+    # Chunk 2: 'd e f g h ' (len 10)
+    # Overlap: 'g h ' (len 4)
+    # Chunk 3: 'g h i j k' (len 9)
+    assert chunks[0].text_for_generation == "a b c d e "
+    assert chunks[1].text_for_generation == "d e f g h "
+    assert chunks[2].text_for_generation == "g h i j k"
+
+
+def test_recursive_chunker_long_word_fallback():
+    """Test that a word longer than chunk_size is handled by the fallback."""
+    text = "ThisIsAVeryLongWordWithoutAnySeparators"
+    chunker = RecursiveCharacterChunker(chunk_size=10, chunk_overlap=0, keep_separator=True)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 4
+    assert chunks[0].text_for_generation == "ThisIsAVer"
+    assert chunks[1].text_for_generation == "yLongWordW"
+    assert chunks[2].text_for_generation == "ithoutAnyS"
+    assert chunks[3].text_for_generation == "eparators"
+
+
+def test_recursive_chunker_custom_separators_and_no_keep():
+    """Test custom separators where the separator is discarded."""
+    text = "one--two--three-four-five"
+    chunker = RecursiveCharacterChunker(
+        chunk_size=12, chunk_overlap=0, separators=["--", "-"], keep_separator=False
+    )
+    chunks = list(chunker.chunk(text))
+
+    # With chunk_size=12, "onetwothree" (len 11) fits, but adding "four" does not.
+    # The next chunk starts with "four" and adds "five".
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "onetwothree"
+    assert chunks[1].text_for_generation == "fourfive"
+
+
+def test_recursive_chunker_empty_string():
+    """Test that an empty string produces no chunks."""
+    chunker = RecursiveCharacterChunker(chunk_size=10, chunk_overlap=0)
+    chunks = list(chunker.chunk(text=""))
+    assert len(chunks) == 0
+
+
+def test_recursive_chunker_small_string():
+    """Test a string smaller than the chunk size."""
+    text = "This is small."
+    chunker = RecursiveCharacterChunker(chunk_size=20, chunk_overlap=0)
+    chunks = list(chunker.chunk(text))
+    assert len(chunks) == 1
+    assert chunks[0].text_for_generation == "This is small."

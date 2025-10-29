@@ -153,3 +153,131 @@ class FixedSizeChunker(BaseChunker):
                 else:
                     start_char = start_of_overlap
         return chunks
+
+
+import re
+from typing import Any, Callable, Iterable, List, Optional
+
+class RecursiveCharacterChunker(BaseChunker):
+    """
+    Recursively splits text based on a list of separators. This implementation
+    is modeled after LangChain's popular text splitter, aiming for robustness
+    and predictability.
+    """
+
+    def __init__(
+        self,
+        chunk_size: int,
+        chunk_overlap: int = 0,
+        length_function: Callable[[str], int] = len,
+        separators: Optional[List[str]] = None,
+        keep_separator: bool = True,
+    ):
+        super().__init__(length_function=length_function)
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer.")
+        if chunk_overlap < 0:
+            raise ValueError("chunk_overlap must be a non-negative integer.")
+        if chunk_overlap >= chunk_size:
+            raise ValueError("chunk_overlap must be smaller than chunk_size.")
+
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.separators = separators or ["\n\n", "\n", ". ", "? ", "! ", " ", ""]
+        self.keep_separator = keep_separator
+
+    def _split_text(self, text: str, separators: List[str]) -> List[str]:
+        """
+        Splits a text based on a list of separators, starting with the first.
+        If a split is still too large, it is recursively split with the remaining
+        separators.
+        """
+        final_splits = []
+        separator = separators[0]
+        remaining_separators = separators[1:]
+
+        if not separator:
+            for i in range(0, len(text), self.chunk_size):
+                final_splits.append(text[i : i + self.chunk_size])
+            return final_splits
+
+        try:
+            splits = re.split(f"({re.escape(separator)})", text)
+        except re.error:
+            splits = list(text)  # Fallback to character-by-character if regex fails
+
+        if self.keep_separator:
+            grouped_splits = [
+                splits[i] + (splits[i + 1] if i + 1 < len(splits) else "")
+                for i in range(0, len(splits), 2)
+            ]
+        else:
+            grouped_splits = [splits[i] for i in range(0, len(splits), 2)]
+
+        grouped_splits = [s for s in grouped_splits if s]
+
+        for s in grouped_splits:
+            if self._length_function(s) <= self.chunk_size:
+                final_splits.append(s)
+            else:
+                next_separators = remaining_separators or [""]
+                final_splits.extend(self._split_text(s, next_separators))
+        return final_splits
+
+    def _merge_splits(self, splits: List[str]) -> List[str]:
+        """
+        Merges a list of text splits into larger chunks, respecting the configured
+        chunk size and overlap. This method is tokenizer-safe.
+        """
+        final_chunks: List[str] = []
+        current_chunk_parts: List[str] = []
+        current_length = 0
+
+        for split in splits:
+            split_len = self._length_function(split)
+
+            if current_length + split_len > self.chunk_size and current_chunk_parts:
+                final_chunk_text = "".join(current_chunk_parts)
+                final_chunks.append(final_chunk_text)
+
+                overlap_parts: List[str] = []
+                overlap_len = 0
+
+                for i in range(len(current_chunk_parts) - 1, -1, -1):
+                    part = current_chunk_parts[i]
+                    part_len = self._length_function(part)
+
+                    if overlap_len + part_len > self.chunk_overlap:
+                        break
+                    overlap_parts.insert(0, part)
+                    overlap_len += part_len
+
+                current_chunk_parts = overlap_parts
+                current_length = overlap_len
+
+            current_chunk_parts.append(split)
+            current_length += split_len
+
+        if current_chunk_parts:
+            final_chunks.append("".join(current_chunk_parts))
+
+        return final_chunks
+
+    def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
+        if not text:
+            return []
+
+        splits = self._split_text(text, self.separators)
+        chunks_text = self._merge_splits(splits)
+
+        final_chunks = []
+        for i, chunk_text in enumerate(chunks_text):
+            final_chunks.append(
+                Chunk(
+                    text_for_generation=chunk_text,
+                    sequence_number=i,
+                    token_count=self._length_function(chunk_text),
+                    chunking_strategy_used="recursive_character",
+                )
+            )
+        return final_chunks
