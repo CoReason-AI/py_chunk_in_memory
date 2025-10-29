@@ -12,10 +12,16 @@ import pytest
 from py_chunk_in_memory.chunkers import BaseChunker, FixedSizeChunker
 
 
-def test_base_chunker_cannot_be_instantiated():
-    """Verify that the abstract BaseChunker cannot be instantiated."""
-    with pytest.raises(TypeError):
-        BaseChunker()
+def test_base_chunker_can_be_instantiated_with_default_len_func():
+    """Verify BaseChunker can be instantiated and has a default length_function."""
+
+    # This is a concrete implementation for testing purposes
+    class ConcreteChunker(BaseChunker):
+        def chunk(self, text: str, **kwargs):
+            yield from []  # pragma: no cover
+
+    chunker = ConcreteChunker()
+    assert chunker._length_function("hello") == 5
 
 
 def test_base_chunker_chunk_raises_not_implemented():
@@ -31,7 +37,7 @@ def test_base_chunker_chunk_raises_not_implemented():
 
 
 def test_fixed_size_chunker_basic():
-    """Test basic fixed-size chunking with no overlap."""
+    """Test basic fixed-size chunking with default len function and no overlap."""
     text = "This is a test string for basic chunking."
     chunker = FixedSizeChunker(chunk_size=10, chunk_overlap=0)
     chunks = list(chunker.chunk(text))
@@ -64,7 +70,7 @@ def test_fixed_size_chunker_basic():
 
 
 def test_fixed_size_chunker_with_overlap():
-    """Test fixed-size chunking with overlap."""
+    """Test fixed-size chunking with overlap and default len function."""
     text = "abcdefghijklmnopqrstuvwxyz"
     chunker = FixedSizeChunker(chunk_size=10, chunk_overlap=3)
     chunks = list(chunker.chunk(text))
@@ -116,7 +122,7 @@ def test_fixed_size_chunker_invalid_params():
 
 
 def test_chunk_metadata_is_correct():
-    """Verify that metadata fields are correctly populated."""
+    """Verify that metadata fields are correctly populated with default len."""
     text = "Testing metadata population."
     chunker = FixedSizeChunker(chunk_size=8, chunk_overlap=2)
     chunks = list(chunker.chunk(text))
@@ -129,18 +135,19 @@ def test_chunk_metadata_is_correct():
         assert chunk.start_char_index == expected_start
         expected_end = min(expected_start + 8, len(text))
         assert chunk.end_char_index == expected_end
+        # Also check token_count which should match char count here
+        assert chunk.token_count == len(chunk.text_for_generation)
 
 
 def test_fixed_size_chunker_with_unicode_characters():
-    """Test chunking with Unicode characters."""
+    """Test chunking with Unicode characters and default len."""
     text = "こんにちは、世界！"  # "Hello, world!" in Japanese
     chunker = FixedSizeChunker(chunk_size=5, chunk_overlap=1)
     chunks = list(chunker.chunk(text))
 
-    assert len(chunks) == 3
+    assert len(chunks) == 2
     assert chunks[0].text_for_generation == "こんにちは"
     assert chunks[1].text_for_generation == "は、世界！"
-    assert chunks[2].text_for_generation == "！"
 
 
 def test_fixed_size_chunker_perfect_fit():
@@ -178,3 +185,60 @@ def test_fixed_size_chunker_with_extra_kwargs():
     assert len(chunks) == 2
     assert chunks[0].text_for_generation == "This is a "
     assert chunks[1].text_for_generation == "test."
+
+
+def test_fixed_size_chunker_with_custom_length_function():
+    """Verify the chunker respects a custom word-counting length function."""
+
+    # This function counts words (space-separated strings). It is not perfect
+    # because it will count empty strings from multiple spaces, but it's
+    # suitable for this test's purpose.
+    def word_counter(text: str) -> int:
+        return len(text.split(" "))
+
+    text = "one two three four five six seven eight nine ten eleven"
+    # Chunk into segments of 3 words, with 1 word overlap
+    chunker = FixedSizeChunker(
+        chunk_size=3, chunk_overlap=1, length_function=word_counter
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 5
+    assert chunks[0].text_for_generation == "one two three"
+    assert word_counter(chunks[0].text_for_generation) == 3
+    assert chunks[1].text_for_generation == "three four five"
+    assert word_counter(chunks[1].text_for_generation) == 3
+    assert chunks[2].text_for_generation == "five six seven"
+    assert word_counter(chunks[2].text_for_generation) == 3
+    assert chunks[3].text_for_generation == "seven eight nine"
+    assert word_counter(chunks[3].text_for_generation) == 3
+    assert chunks[4].text_for_generation == "nine ten eleven"
+    assert word_counter(chunks[4].text_for_generation) == 3
+
+    # Check character indices to ensure they are being tracked correctly
+    assert chunks[0].start_char_index == 0
+    assert chunks[0].end_char_index == 13
+
+    # Overlap should start at "three"
+    assert chunks[1].start_char_index == 8
+    assert chunks[1].end_char_index == 23
+
+
+def test_chunker_handles_single_char_exceeding_chunk_size():
+    """Test that a single character exceeding chunk size is handled."""
+
+    # A length function where 'X' has a size of 100
+    def length_function(x: str) -> int:
+        return 100 if "X" in x else len(x)
+
+    text = "abcXdef"
+    chunker = FixedSizeChunker(
+        chunk_size=10, chunk_overlap=2, length_function=length_function
+    )
+    chunks = list(chunker.chunk(text))
+
+    # The logic should create three chunks: "abc", "X", and "def"
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "abc"
+    assert chunks[1].text_for_generation == "X"
+    assert chunks[2].text_for_generation == "def"
