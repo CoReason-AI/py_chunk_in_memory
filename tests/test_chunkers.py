@@ -16,3 +16,17 @@ def test_base_chunker_cannot_be_instantiated():
     """Verify that the abstract BaseChunker cannot be instantiated directly."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class BaseChunker"):
         BaseChunker()
+
+
+def test_base_chunker_chunk_raises_not_implemented():
+    """Verify calling a non-implemented chunk method raises NotImplementedError."""
+
+    class ConcreteChunker(BaseChunker):
+        """A concrete class for testing the abstract method invocation."""
+
+        def chunk(self, text: str, **kwargs):
+            return super().chunk(text, **kwargs)
+
+    chunker = ConcreteChunker()
+    with pytest.raises(NotImplementedError):
+        chunker.chunk("some text")
