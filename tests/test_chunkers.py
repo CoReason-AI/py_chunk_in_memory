@@ -25,7 +25,7 @@ def test_base_chunker_chunk_raises_not_implemented():
         """A concrete class for testing the abstract method invocation."""
 
         def chunk(self, text: str, **kwargs):
-            return super().chunk(text, **kwargs)
+            return super().chunk(text, **kwargs)  # type: ignore[safe-super]
 
     chunker = ConcreteChunker()
     with pytest.raises(NotImplementedError):
