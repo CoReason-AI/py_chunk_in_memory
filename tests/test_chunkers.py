@@ -129,3 +129,52 @@ def test_chunk_metadata_is_correct():
         assert chunk.start_char_index == expected_start
         expected_end = min(expected_start + 8, len(text))
         assert chunk.end_char_index == expected_end
+
+
+def test_fixed_size_chunker_with_unicode_characters():
+    """Test chunking with Unicode characters."""
+    text = "こんにちは、世界！"  # "Hello, world!" in Japanese
+    chunker = FixedSizeChunker(chunk_size=5, chunk_overlap=1)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "こんにちは"
+    assert chunks[1].text_for_generation == "は、世界！"
+    assert chunks[2].text_for_generation == "！"
+
+
+def test_fixed_size_chunker_perfect_fit():
+    """Test chunking where text length is a perfect multiple of chunk size."""
+    text = "1234567890"
+    chunker = FixedSizeChunker(chunk_size=5, chunk_overlap=0)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "12345"
+    assert chunks[1].text_for_generation == "67890"
+
+
+def test_fixed_size_chunker_whitespace_only():
+    """Test chunking with text containing only whitespace."""
+    text = "          "  # 10 spaces
+    chunker = FixedSizeChunker(chunk_size=3, chunk_overlap=1)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 5
+    assert chunks[0].text_for_generation == "   "
+    assert chunks[1].text_for_generation == "   "
+    assert chunks[2].text_for_generation == "   "
+    assert chunks[3].text_for_generation == "   "
+    assert chunks[4].text_for_generation == "  "
+
+
+def test_fixed_size_chunker_with_extra_kwargs():
+    """Test that the chunker handles unexpected kwargs gracefully."""
+    text = "This is a test."
+    chunker = FixedSizeChunker(chunk_size=10, chunk_overlap=0)
+    # The `unused_param` should be ignored
+    chunks = list(chunker.chunk(text, unused_param="some_value"))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "This is a "
+    assert chunks[1].text_for_generation == "test."
