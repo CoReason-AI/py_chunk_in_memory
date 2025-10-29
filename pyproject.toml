@@ -19,6 +19,13 @@ pytest-cov = ">=5.0.0"
 mkdocs = ">=1.6.0"
 mkdocs-material = ">=9.5.26"
 
+[tool.poetry.group.tokenizers]
+optional = true
+
+[tool.poetry.group.tokenizers.dependencies]
+tiktoken = ">=0.7.0"
+transformers = ">=4.41.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -53,6 +60,13 @@ dev = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.26",
 ]
+tokenizers = [
+    "tiktoken>=0.7.0",
+    "transformers>=4.41.2",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+markers = [
+    "tokenizers: marks tests as requiring the tokenizers optional dependency group",
+]
