@@ -109,7 +109,10 @@ class FixedSizeChunker(BaseChunker):
             else:
                 # Scan forward to the limit to find the largest chunk that fits
                 while end_char < limit:
-                    if self._length_function(text[start_char : end_char + 1]) > self.chunk_size:
+                    if (
+                        self._length_function(text[start_char : end_char + 1])
+                        > self.chunk_size
+                    ):
                         break
                     end_char += 1
 

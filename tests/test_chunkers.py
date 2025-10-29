@@ -29,7 +29,7 @@ def test_base_chunker_chunk_raises_not_implemented():
 
     class MinimalChunker(BaseChunker):
         def chunk(self, text: str, **kwargs):
-            return super().chunk(text, **kwargs)
+            return super().chunk(text, **kwargs)  # type: ignore [safe-super]
 
     chunker = MinimalChunker()
     with pytest.raises(NotImplementedError):
@@ -226,8 +226,10 @@ def test_fixed_size_chunker_with_custom_length_function():
 
 def test_chunker_handles_single_char_exceeding_chunk_size():
     """Test that a single character exceeding chunk size is handled."""
+
     # A length function where 'X' has a size of 100
-    length_function = lambda x: 100 if "X" in x else len(x)
+    def length_function(x: str) -> int:
+        return 100 if "X" in x else len(x)
 
     text = "abcXdef"
     chunker = FixedSizeChunker(
