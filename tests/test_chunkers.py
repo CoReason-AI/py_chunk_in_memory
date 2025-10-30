@@ -316,10 +316,14 @@ def test_recursive_chunker_invalid_constructor_args():
     with pytest.raises(ValueError, match="chunk_size must be a positive integer."):
         RecursiveCharacterChunker(chunk_size=0)
 
-    with pytest.raises(ValueError, match="chunk_overlap must be a non-negative integer."):
+    with pytest.raises(
+        ValueError, match="chunk_overlap must be a non-negative integer."
+    ):
         RecursiveCharacterChunker(chunk_size=10, chunk_overlap=-1)
 
-    with pytest.raises(ValueError, match="chunk_overlap must be smaller than chunk_size."):
+    with pytest.raises(
+        ValueError, match="chunk_overlap must be smaller than chunk_size."
+    ):
         RecursiveCharacterChunker(chunk_size=10, chunk_overlap=10)
 
 
@@ -383,6 +387,7 @@ def test_fixed_size_chunker_overlap_edge_case():
     that is less than or equal to the current start_char, the chunker advances
     to the end of the current chunk.
     """
+
     # A length function where each character is size 3.
     # So "abc" has length 9. "de" has length 6.
     def length_function(text: str) -> int:
