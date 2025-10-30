@@ -546,6 +546,142 @@ def test_fixed_size_chunker_avoids_empty_chunk():
     assert chunks[1].text_for_generation == "b"
 
 
+def test_runt_handling_merge_with_varied_sizes():
+    """Test merging behavior with a mix of runts and valid chunks."""
+    pre_canned_chunks = [
+        Chunk(
+            text_for_generation="Chunk number one is quite long.",
+            start_char_index=0,
+            end_char_index=29,
+        ),
+        Chunk(text_for_generation="Runt1", start_char_index=30, end_char_index=35),
+        Chunk(
+            text_for_generation="This is chunk three.",
+            start_char_index=36,
+            end_char_index=54,
+        ),
+        Chunk(text_for_generation="Runt2", start_char_index=55, end_char_index=60),
+    ]
+    chunker = DummyChunker(
+        pre_canned_chunks,
+        chunk_size=40,
+        minimum_chunk_size=10,
+        runt_handling="merge",
+    )
+    chunks = chunker.chunk("doesn't matter")
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "Chunk number one is quite long.Runt1"
+    assert chunks[1].text_for_generation == "This is chunk three.Runt2"
+    assert chunks[0].end_char_index == 35
+    assert chunks[1].end_char_index == 60
+
+
+def test_link_chunks_raises_error_for_merge_without_chunk_size():
+    """
+    Verify `_link_chunks` raises ValueError if runt handling is 'merge' but
+    no chunk_size is provided.
+    """
+
+    class TestChunker(BaseChunker):
+        def __init__(self):
+            super().__init__(minimum_chunk_size=10, runt_handling="merge")
+
+        def chunk(self, text: str, **kwargs):
+            pass  # pragma: no cover
+
+        def test_link(self, chunks):
+            return self._link_chunks(chunks)  # No chunk_size passed
+
+    chunker = TestChunker()
+    with pytest.raises(
+        ValueError,
+        match="chunk_size must be provided to _link_chunks when using 'merge' runt handling.",
+    ):
+        chunker.test_link([Chunk(text_for_generation="test")])
+
+
+def test_recursive_chunker_empty_last_separator():
+    """
+    Test that the recursive chunker handles an empty string as the last separator,
+    which acts as a fallback to split by character.
+    """
+    text = "word"
+    # The "" separator will cause a recursive split on "word"
+    chunker = RecursiveCharacterChunker(
+        chunk_size=2, separators=["\n", ""], keep_separator=True
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "wo"
+    assert chunks[1].text_for_generation == "rd"
+
+
+def test_recursive_chunker_merging_logic_creates_new_chunk():
+    """
+    Test the merging logic correctly creates a new chunk when the next
+    split would exceed the chunk_size.
+    """
+    text = "split one. split two"
+    # The splits will be "split one. " (len 11) and "split two" (len 9).
+    # With a chunk size of 15, the first split fits.
+    # Adding the second split (11 + 9 = 20) exceeds 15, triggering the
+    # creation of a new chunk. This specifically tests the `if` condition
+    # in the `_merge_splits_with_indices` loop.
+    chunker = RecursiveCharacterChunker(
+        chunk_size=15, separators=[". "], keep_separator=True
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "split one. "
+    assert chunks[1].text_for_generation == "split two"
+
+
+def test_fixed_size_chunker_with_empty_chunk_and_oversized_char():
+    """
+    This test covers the `if not chunk_text: break` line. It creates a scenario
+    with a stateful length function where a character is initially considered
+    normal, but is then considered oversized during the main chunking loop. This
+    results in an empty chunk, triggering the break.
+    """
+    call_count = 0
+
+    def length_function(text: str) -> int:
+        nonlocal call_count
+        call_count += 1
+        # The pre-scan for "a", "b", "c" will pass
+        if call_count <= 3:
+            return 1
+        # The main scan's first check on "a" will fail
+        if text == "a":
+            return 100
+        return len(text)
+
+    text = "abc"
+    chunker = FixedSizeChunker(chunk_size=10, length_function=length_function)
+    chunks = list(chunker.chunk(text))
+    assert len(chunks) == 0
+
+
+def test_recursive_chunker_re_error_fallback_is_covered():
+    """
+    Test that a regex error during splitting falls back to character-wise split.
+    This is difficult to trigger with re.escape, so we mock re.finditer.
+    """
+    import re
+    from unittest.mock import patch
+
+    with patch("re.finditer", side_effect=re.error("mocked error")):
+        chunker = RecursiveCharacterChunker(chunk_size=2, separators=["-"])
+        text = "a-b"
+        chunks = list(chunker.chunk(text))
+        assert len(chunks) == 2
+        assert chunks[0].text_for_generation == "a-"
+        assert chunks[1].text_for_generation == "b"
+
+
 def test_chunk_linking():
     """Verify that previous_chunk_id and next_chunk_id are set correctly."""
     text = "Chunk one. Chunk two. Chunk three."
