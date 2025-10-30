@@ -433,3 +433,72 @@ def test_recursive_chunker_tracks_char_indices():
     assert chunks[2].text_for_generation == "Third sentence."
     assert chunks[2].start_char_index == 33
     assert chunks[2].end_char_index == 48
+
+
+def test_recursive_chunker_handles_final_split():
+    """
+    Tests that the final set of splits is correctly merged into a chunk.
+    This covers the `if current_chunk_parts:` block at the end of
+    `_merge_splits_with_indices`.
+    """
+    # This test simulates a scenario where the input text is split into parts,
+    # and the final part needs to be processed correctly.
+    chunker = RecursiveCharacterChunker(chunk_size=10, chunk_overlap=0)
+    text = "a b c"  # This will be split into ["a ", "b ", "c"]
+    chunks = list(chunker.chunk(text))
+
+    # The splits "a ", "b ", "c" (total length 5) are small enough to be
+    # merged into a single chunk. This test ensures the final `if` block
+    # in the merge function correctly captures these.
+    assert len(chunks) == 1
+    assert chunks[0].text_for_generation == "a b c"
+
+
+def test_fixed_size_chunker_overlap_scan_completes():
+    """
+    Covers the `if start_of_overlap <= start_char:` line in FixedSizeChunker.
+    This is hit when the overlap backward scan completes without breaking.
+    """
+
+    def length_function(text: str) -> int:
+        return 10 if "X" in text else len(text)
+
+    text = "abcXde"
+    # chunk_size = 5, overlap = 4.
+    # First chunk is "abc" because "X" is an oversized character.
+    # The length of "abc" is 3, which is less than the overlap (4).
+    # This allows the overlap scan to complete without breaking.
+    chunker = FixedSizeChunker(
+        chunk_size=5, chunk_overlap=4, length_function=length_function
+    )
+    chunks = list(chunker.chunk(text))
+
+    # The sequence of chunks should be "abc", "X", "de".
+    # This confirms that after chunking "abc", the next chunk starts at "X",
+    # which happens when the full overlap scan triggers `start_char = end_char`.
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "abc"
+    assert chunks[1].text_for_generation == "X"
+    assert chunks[2].text_for_generation == "de"
+
+
+def test_fixed_size_chunker_handles_adjacent_oversized_char():
+    """
+    Tests correct chunking when a normal string is followed by an oversized char.
+    The oversized char should be placed in its own chunk.
+    """
+
+    def length_function(text: str) -> int:
+        return 100 if text == "b" else 1
+
+    text = "ab"
+    # chunk_size is 10.
+    # The chunker should first create a chunk for "a".
+    # Then, it will identify "b" as an oversized character and place it in
+    # its own, separate chunk.
+    chunker = FixedSizeChunker(chunk_size=10, length_function=length_function)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "a"
+    assert chunks[1].text_for_generation == "b"
