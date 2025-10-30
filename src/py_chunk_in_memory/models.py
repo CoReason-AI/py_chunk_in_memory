@@ -15,15 +15,23 @@ from uuid import UUID, uuid4
 
 @dataclass
 class Chunk:
-    """Represents a standardized segment of text after chunking."""
+    """
+    Represents a standardized segment of text after chunking, enriched with
+    metadata and relationship information as per the FRD.
+    """
 
     text_for_generation: str
-    text_for_embedding: Optional[str] = None
     chunk_id: UUID = field(default_factory=uuid4)
-    source_document_id: UUID = field(default_factory=uuid4)
+
+    # FRD R-5.1.3: Dual Text Fields
+    text_for_embedding: Optional[str] = None
+
+    # FRD R-5.2 & R-5.3: Standard Metadata and Relationships
+    source_document_id: Optional[Any] = None
     previous_chunk_id: Optional[UUID] = None
     next_chunk_id: Optional[UUID] = None
     parent_chunk_id: Optional[UUID] = None
+
     start_char_index: int = 0
     end_char_index: int = 0
     sequence_number: int = 0
@@ -31,4 +39,6 @@ class Chunk:
     content_type: str = "text"
     chunking_strategy_used: str = "unknown"
     hierarchical_context: Dict[str, Any] = field(default_factory=dict)
+
+    # FRD R-2.1.5: Metadata Propagation
     metadata: Dict[str, Any] = field(default_factory=dict)
