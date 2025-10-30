@@ -10,6 +10,7 @@
 
 import pytest
 from py_chunk_in_memory.chunkers import (
+    _Split,
     BaseChunker,
     FixedSizeChunker,
     RecursiveCharacterChunker,
@@ -433,3 +434,22 @@ def test_recursive_chunker_tracks_char_indices():
     assert chunks[2].text_for_generation == "Third sentence."
     assert chunks[2].start_char_index == 33
     assert chunks[2].end_char_index == 48
+
+
+def test_recursive_chunker_handles_final_split():
+    """
+    Tests that the final set of splits is correctly merged into a chunk.
+    This covers the `if current_chunk_parts:` block at the end of
+    `_merge_splits_with_indices`.
+    """
+    # This test simulates a scenario where the input text is split into parts,
+    # and the final part needs to be processed correctly.
+    chunker = RecursiveCharacterChunker(chunk_size=10, chunk_overlap=0)
+    text = "a b c"  # This will be split into ["a ", "b ", "c"]
+    chunks = list(chunker.chunk(text))
+
+    # The splits "a ", "b ", "c" (total length 5) are small enough to be
+    # merged into a single chunk. This test ensures the final `if` block
+    # in the merge function correctly captures these.
+    assert len(chunks) == 1
+    assert chunks[0].text_for_generation == "a b c"
