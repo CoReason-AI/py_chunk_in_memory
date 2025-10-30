@@ -10,9 +10,19 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterable, List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 from py_chunk_in_memory.models import Chunk
+
+
+@dataclass
+class _Sentence:
+    """Internal representation of a sentence with its character indices."""
+
+    text: str
+    start_index: int
+    end_index: int
 
 
 class BaseChunker(ABC):
@@ -276,6 +286,151 @@ class RecursiveCharacterChunker(BaseChunker):
                     sequence_number=i,
                     token_count=self._length_function(chunk_text),
                     chunking_strategy_used="recursive_character",
+                )
+            )
+        return final_chunks
+
+
+class SentenceChunker(BaseChunker):
+    """
+    Splits text into sentences and aggregates them into chunks of a specified size.
+    This chunker provides a robust regex-based fallback if NLP libraries are not
+    available.
+    """
+
+    def __init__(
+        self,
+        chunk_size: int,
+        chunk_overlap: int = 0,
+        length_function: Callable[[str], int] = len,
+        overlap_sentences: int = 0,
+    ):
+        """
+        Initializes the SentenceChunker.
+        Args:
+            chunk_size: The maximum size of each chunk.
+            chunk_overlap: The overlap between consecutive chunks (token-based).
+            length_function: The function to measure text size.
+            overlap_sentences: The number of sentences to overlap. If > 0, this
+                               overrides `chunk_overlap`.
+        """
+        super().__init__(length_function=length_function)
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer.")
+        if chunk_overlap < 0:
+            raise ValueError("chunk_overlap must be a non-negative integer.")
+        if chunk_overlap >= chunk_size and overlap_sentences == 0:
+            raise ValueError("chunk_overlap must be smaller than chunk_size.")
+        if overlap_sentences < 0:
+            raise ValueError("overlap_sentences must be a non-negative integer.")
+
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.overlap_sentences = overlap_sentences
+
+    def _split_text_with_regex(self, text: str) -> List[_Sentence]:
+        """
+        A robust regex-based sentence splitter that preserves character indices.
+        """
+        sentences = []
+        pattern = r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!)\s"
+
+        last_end = 0
+        for match in re.finditer(pattern, text):
+            raw_sentence = text[last_end:match.start()]
+            stripped_sentence = raw_sentence.strip()
+            if stripped_sentence:
+                start_index = last_end + raw_sentence.find(stripped_sentence)
+                end_index = start_index + len(stripped_sentence)
+                sentences.append(_Sentence(stripped_sentence, start_index, end_index))
+            last_end = match.end()
+
+        remaining_text = text[last_end:]
+        stripped_remaining = remaining_text.strip()
+        if stripped_remaining:
+            start_index = last_end + remaining_text.find(stripped_remaining)
+            end_index = start_index + len(stripped_remaining)
+            sentences.append(_Sentence(stripped_remaining, start_index, end_index))
+
+        return sentences
+
+    def _merge_sentences(self, sentences: List[_Sentence]) -> List[Tuple[str, int, int]]:
+        """
+        Merges a list of _Sentence objects into chunks.
+        Returns a list of tuples, where each tuple contains the chunk text,
+        start index, and end index.
+        """
+        final_chunks: List[Tuple[str, int, int]] = []
+        current_chunk_sentences: List[_Sentence] = []
+
+        def join_sentence_texts(sents: List[_Sentence]) -> str:
+            return " ".join(s.text for s in sents)
+
+        for sentence in sentences:
+            if self._length_function(sentence.text) > self.chunk_size:
+                if current_chunk_sentences:
+                    start_idx = current_chunk_sentences[0].start_index
+                    end_idx = current_chunk_sentences[-1].end_index
+                    final_chunks.append((join_sentence_texts(current_chunk_sentences), start_idx, end_idx))
+                current_chunk_sentences = []
+                final_chunks.append((sentence.text, sentence.start_index, sentence.end_index))
+                continue
+
+            prospective_chunk = current_chunk_sentences + [sentence]
+            if self._length_function(join_sentence_texts(prospective_chunk)) > self.chunk_size:
+                if current_chunk_sentences:
+                    start_idx = current_chunk_sentences[0].start_index
+                    end_idx = current_chunk_sentences[-1].end_index
+                    final_chunks.append((join_sentence_texts(current_chunk_sentences), start_idx, end_idx))
+
+                if self.overlap_sentences > 0:
+                    overlap = current_chunk_sentences[-self.overlap_sentences:]
+                else:
+                    overlap: List[_Sentence] = []
+                    for i in range(len(current_chunk_sentences) - 1, -1, -1):
+                        sent = current_chunk_sentences[i]
+                        prospective_overlap = [sent] + overlap
+                        if self._length_function(join_sentence_texts(prospective_overlap)) > self.chunk_overlap:
+                            break
+                        overlap = prospective_overlap
+
+                current_chunk_sentences = overlap
+                if self._length_function(join_sentence_texts(current_chunk_sentences + [sentence])) <= self.chunk_size:
+                    current_chunk_sentences.append(sentence)
+                else:
+                    # If the new sentence can't fit even with the overlap, start a new chunk
+                    final_chunks.append((sentence.text, sentence.start_index, sentence.end_index))
+                    current_chunk_sentences = [] # Reset for next iteration
+            else:
+                current_chunk_sentences = prospective_chunk
+
+        if current_chunk_sentences:
+            start_idx = current_chunk_sentences[0].start_index
+            end_idx = current_chunk_sentences[-1].end_index
+            final_chunks.append((join_sentence_texts(current_chunk_sentences), start_idx, end_idx))
+
+        return final_chunks
+
+    def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
+        """
+        Chunks the text by splitting it into sentences and then merging them.
+        """
+        if not text:
+            return []
+
+        sentences = self._split_text_with_regex(text)
+        chunk_data = self._merge_sentences(sentences)
+
+        final_chunks = []
+        for i, (chunk_text, start_index, end_index) in enumerate(chunk_data):
+            final_chunks.append(
+                Chunk(
+                    text_for_generation=chunk_text,
+                    start_char_index=start_index,
+                    end_char_index=end_index,
+                    sequence_number=i,
+                    token_count=self._length_function(chunk_text),
+                    chunking_strategy_used="sentence",
                 )
             )
         return final_chunks
