@@ -25,6 +25,15 @@ class _Sentence:
     end_index: int
 
 
+@dataclass
+class _Split:
+    """Internal representation of a text split with its character indices."""
+
+    text: str
+    start_index: int
+    end_index: int
+
+
 class BaseChunker(ABC):
     """Abstract base class for all chunking strategies."""
 
@@ -170,7 +179,7 @@ class RecursiveCharacterChunker(BaseChunker):
     """
     Recursively splits text based on a list of separators. This implementation
     is modeled after LangChain's popular text splitter, aiming for robustness
-    and predictability.
+    and predictability. It now correctly tracks character indices.
     """
 
     def __init__(
@@ -194,67 +203,109 @@ class RecursiveCharacterChunker(BaseChunker):
         self.separators = separators or ["\n\n", "\n", ". ", "? ", "! ", " ", ""]
         self.keep_separator = keep_separator
 
-    def _split_text(self, text: str, separators: List[str]) -> List[str]:
+    def _split_text_with_indices(
+        self, text: str, separators: List[str], initial_offset: int = 0
+    ) -> List[_Split]:
         """
-        Splits a text based on a list of separators, starting with the first.
-        If a split is still too large, it is recursively split with the remaining
-        separators.
+        Splits a text based on separators while keeping track of original indices.
         """
-        final_splits = []
+        final_splits: List[_Split] = []
+        if not text:
+            return final_splits
+
         separator = separators[0]
         remaining_separators = separators[1:]
 
-        if not separator:
+        if not separator:  # Fallback for the last separator
             for i in range(0, len(text), self.chunk_size):
-                final_splits.append(text[i : i + self.chunk_size])
+                segment = text[i : i + self.chunk_size]
+                final_splits.append(
+                    _Split(
+                        text=segment,
+                        start_index=initial_offset + i,
+                        end_index=initial_offset + i + len(segment),
+                    )
+                )
             return final_splits
 
         try:
-            splits = re.split(f"({re.escape(separator)})", text)
-        except re.error:
-            splits = list(text)  # Fallback to character-by-character if regex fails
+            last_end = 0
+            for match in re.finditer(re.escape(separator), text):
+                start, end = match.span()
+                if self.keep_separator:
+                    final_splits.append(
+                        _Split(
+                            text=text[last_end:end],
+                            start_index=initial_offset + last_end,
+                            end_index=initial_offset + end,
+                        )
+                    )
+                else:
+                    final_splits.append(
+                        _Split(
+                            text=text[last_end:start],
+                            start_index=initial_offset + last_end,
+                            end_index=initial_offset + start,
+                        )
+                    )
+                last_end = end
+            if last_end < len(text):
+                final_splits.append(
+                    _Split(
+                        text=text[last_end:],
+                        start_index=initial_offset + last_end,
+                        end_index=initial_offset + len(text),
+                    )
+                )
+        except re.error:  # Fallback for invalid regex
+            for char_idx, char in enumerate(text):
+                final_splits.append(
+                    _Split(
+                        text=char,
+                        start_index=initial_offset + char_idx,
+                        end_index=initial_offset + char_idx + 1,
+                    )
+                )
 
-        if self.keep_separator:
-            grouped_splits = [
-                splits[i] + (splits[i + 1] if i + 1 < len(splits) else "")
-                for i in range(0, len(splits), 2)
-            ]
-        else:
-            grouped_splits = [splits[i] for i in range(0, len(splits), 2)]
-
-        grouped_splits = [s for s in grouped_splits if s]
-
-        for s in grouped_splits:
-            if self._length_function(s) <= self.chunk_size:
-                final_splits.append(s)
+        # Recursively split any oversized chunks
+        recursive_splits: List[_Split] = []
+        for split in final_splits:
+            if self._length_function(split.text) <= self.chunk_size:
+                recursive_splits.append(split)
             else:
                 next_separators = remaining_separators or [""]
-                final_splits.extend(self._split_text(s, next_separators))
-        return final_splits
+                recursive_splits.extend(
+                    self._split_text_with_indices(
+                        split.text, next_separators, split.start_index
+                    )
+                )
+        return recursive_splits
 
-    def _merge_splits(self, splits: List[str]) -> List[str]:
+    def _merge_splits_with_indices(
+        self, splits: List[_Split]
+    ) -> List[Tuple[str, int, int]]:
         """
-        Merges a list of text splits into larger chunks, respecting the configured
-        chunk size and overlap. This method is tokenizer-safe.
+        Merges a list of _Split objects into larger chunks.
         """
-        final_chunks: List[str] = []
-        current_chunk_parts: List[str] = []
+        final_chunks: List[Tuple[str, int, int]] = []
+        current_chunk_parts: List[_Split] = []
         current_length = 0
 
         for split in splits:
-            split_len = self._length_function(split)
-
+            split_len = self._length_function(split.text)
             if current_length + split_len > self.chunk_size and current_chunk_parts:
-                final_chunk_text = "".join(current_chunk_parts)
-                final_chunks.append(final_chunk_text)
+                start_index = current_chunk_parts[0].start_index
+                end_index = current_chunk_parts[-1].end_index
+                final_chunks.append(
+                    ("".join(p.text for p in current_chunk_parts), start_index, end_index)
+                )
 
-                overlap_parts: List[str] = []
+                # Determine overlap
+                overlap_parts: List[_Split] = []
                 overlap_len = 0
-
                 for i in range(len(current_chunk_parts) - 1, -1, -1):
                     part = current_chunk_parts[i]
-                    part_len = self._length_function(part)
-
+                    part_len = self._length_function(part.text)
                     if overlap_len + part_len > self.chunk_overlap:
                         break
                     overlap_parts.insert(0, part)
@@ -267,7 +318,11 @@ class RecursiveCharacterChunker(BaseChunker):
             current_length += split_len
 
         if current_chunk_parts:
-            final_chunks.append("".join(current_chunk_parts))
+            start_index = current_chunk_parts[0].start_index
+            end_index = current_chunk_parts[-1].end_index
+            final_chunks.append(
+                ("".join(p.text for p in current_chunk_parts), start_index, end_index)
+            )
 
         return final_chunks
 
@@ -275,14 +330,16 @@ class RecursiveCharacterChunker(BaseChunker):
         if not text:
             return []
 
-        splits = self._split_text(text, self.separators)
-        chunks_text = self._merge_splits(splits)
+        splits = self._split_text_with_indices(text, self.separators)
+        chunk_data = self._merge_splits_with_indices(splits)
 
         final_chunks = []
-        for i, chunk_text in enumerate(chunks_text):
+        for i, (chunk_text, start_index, end_index) in enumerate(chunk_data):
             final_chunks.append(
                 Chunk(
                     text_for_generation=chunk_text,
+                    start_char_index=start_index,
+                    end_char_index=end_index,
                     sequence_number=i,
                     token_count=self._length_function(chunk_text),
                     chunking_strategy_used="recursive_character",

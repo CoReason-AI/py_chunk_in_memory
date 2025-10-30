@@ -409,3 +409,27 @@ def test_fixed_size_chunker_overlap_edge_case():
     assert len(chunks) == 2
     assert chunks[0].text_for_generation == "abc"
     assert chunks[1].text_for_generation == "de"
+
+
+def test_recursive_chunker_tracks_char_indices():
+    """Verify that RecursiveCharacterChunker correctly tracks character indices."""
+    text = "First sentence. Second sentence. Third sentence."
+    #        01234567890123456789012345678901234567890123456789
+    #        0         1         2         3         4
+    chunker = RecursiveCharacterChunker(
+        chunk_size=20, chunk_overlap=5, separators=[". "], keep_separator=True
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "First sentence. "
+    assert chunks[0].start_char_index == 0
+    assert chunks[0].end_char_index == 16
+
+    assert chunks[1].text_for_generation == "Second sentence. "
+    assert chunks[1].start_char_index == 16
+    assert chunks[1].end_char_index == 33
+
+    assert chunks[2].text_for_generation == "Third sentence."
+    assert chunks[2].start_char_index == 33
+    assert chunks[2].end_char_index == 48
