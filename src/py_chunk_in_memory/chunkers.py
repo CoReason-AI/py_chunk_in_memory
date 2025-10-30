@@ -297,7 +297,11 @@ class RecursiveCharacterChunker(BaseChunker):
                 start_index = current_chunk_parts[0].start_index
                 end_index = current_chunk_parts[-1].end_index
                 final_chunks.append(
-                    ("".join(p.text for p in current_chunk_parts), start_index, end_index)
+                    (
+                        "".join(p.text for p in current_chunk_parts),
+                        start_index,
+                        end_index,
+                    )
                 )
 
                 # Determine overlap
