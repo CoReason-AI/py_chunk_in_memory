@@ -56,9 +56,7 @@ class BaseChunker(ABC):
         if minimum_chunk_size < 0:
             raise ValueError("minimum_chunk_size must be a non-negative integer.")
         if runt_handling not in ["keep", "discard", "merge"]:
-            raise ValueError(
-                "runt_handling must be one of 'keep', 'discard', 'merge'."
-            )
+            raise ValueError("runt_handling must be one of 'keep', 'discard', 'merge'.")
 
         self._length_function = length_function
         self._minimum_chunk_size = minimum_chunk_size
@@ -78,9 +76,7 @@ class BaseChunker(ABC):
         """
         raise NotImplementedError
 
-    def _handle_runts(
-        self, chunks: List[Chunk], chunk_size: int
-    ) -> List[Chunk]:
+    def _handle_runts(self, chunks: List[Chunk], chunk_size: int) -> List[Chunk]:
         """Applies the configured policy for handling undersized chunks ("runts")."""
         if self._runt_handling == "keep" or self._minimum_chunk_size == 0:
             return chunks
