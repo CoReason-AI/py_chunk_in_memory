@@ -70,3 +70,6 @@ pythonpath = ["src"]
 markers = [
     "tokenizers: marks tests as requiring the tokenizers optional dependency group",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true

@@ -337,7 +337,7 @@ class SentenceChunker(BaseChunker):
 
         last_end = 0
         for match in re.finditer(pattern, text):
-            raw_sentence = text[last_end:match.start()]
+            raw_sentence = text[last_end : match.start()]
             stripped_sentence = raw_sentence.strip()
             if stripped_sentence:
                 start_index = last_end + raw_sentence.find(stripped_sentence)
@@ -354,7 +354,9 @@ class SentenceChunker(BaseChunker):
 
         return sentences
 
-    def _merge_sentences(self, sentences: List[_Sentence]) -> List[Tuple[str, int, int]]:
+    def _merge_sentences(
+        self, sentences: List[_Sentence]
+    ) -> List[Tuple[str, int, int]]:
         """
         Merges a list of _Sentence objects into chunks.
         Returns a list of tuples, where each tuple contains the chunk text,
@@ -371,43 +373,75 @@ class SentenceChunker(BaseChunker):
                 if current_chunk_sentences:
                     start_idx = current_chunk_sentences[0].start_index
                     end_idx = current_chunk_sentences[-1].end_index
-                    final_chunks.append((join_sentence_texts(current_chunk_sentences), start_idx, end_idx))
+                    final_chunks.append(
+                        (
+                            join_sentence_texts(current_chunk_sentences),
+                            start_idx,
+                            end_idx,
+                        )
+                    )
                 current_chunk_sentences = []
-                final_chunks.append((sentence.text, sentence.start_index, sentence.end_index))
+                final_chunks.append(
+                    (sentence.text, sentence.start_index, sentence.end_index)
+                )
                 continue
 
             prospective_chunk = current_chunk_sentences + [sentence]
-            if self._length_function(join_sentence_texts(prospective_chunk)) > self.chunk_size:
+            if (
+                self._length_function(join_sentence_texts(prospective_chunk))
+                > self.chunk_size
+            ):
                 if current_chunk_sentences:
                     start_idx = current_chunk_sentences[0].start_index
                     end_idx = current_chunk_sentences[-1].end_index
-                    final_chunks.append((join_sentence_texts(current_chunk_sentences), start_idx, end_idx))
+                    final_chunks.append(
+                        (
+                            join_sentence_texts(current_chunk_sentences),
+                            start_idx,
+                            end_idx,
+                        )
+                    )
 
                 if self.overlap_sentences > 0:
-                    overlap = current_chunk_sentences[-self.overlap_sentences:]
+                    overlap_sents = current_chunk_sentences[-self.overlap_sentences :]
                 else:
-                    overlap: List[_Sentence] = []
+                    token_overlap_sents: List[_Sentence] = []
                     for i in range(len(current_chunk_sentences) - 1, -1, -1):
                         sent = current_chunk_sentences[i]
-                        prospective_overlap = [sent] + overlap
-                        if self._length_function(join_sentence_texts(prospective_overlap)) > self.chunk_overlap:
+                        prospective_overlap = [sent] + token_overlap_sents
+                        if (
+                            self._length_function(
+                                join_sentence_texts(prospective_overlap)
+                            )
+                            > self.chunk_overlap
+                        ):
                             break
-                        overlap = prospective_overlap
+                        token_overlap_sents = prospective_overlap
+                    overlap_sents = token_overlap_sents
 
-                current_chunk_sentences = overlap
-                if self._length_function(join_sentence_texts(current_chunk_sentences + [sentence])) <= self.chunk_size:
+                current_chunk_sentences = overlap_sents
+                if (
+                    self._length_function(
+                        join_sentence_texts(current_chunk_sentences + [sentence])
+                    )
+                    <= self.chunk_size
+                ):
                     current_chunk_sentences.append(sentence)
                 else:
                     # If the new sentence can't fit even with the overlap, start a new chunk
-                    final_chunks.append((sentence.text, sentence.start_index, sentence.end_index))
-                    current_chunk_sentences = [] # Reset for next iteration
+                    final_chunks.append(
+                        (sentence.text, sentence.start_index, sentence.end_index)
+                    )
+                    current_chunk_sentences = []  # Reset for next iteration
             else:
                 current_chunk_sentences = prospective_chunk
 
         if current_chunk_sentences:
             start_idx = current_chunk_sentences[0].start_index
             end_idx = current_chunk_sentences[-1].end_index
-            final_chunks.append((join_sentence_texts(current_chunk_sentences), start_idx, end_idx))
+            final_chunks.append(
+                (join_sentence_texts(current_chunk_sentences), start_idx, end_idx)
+            )
 
         return final_chunks
 

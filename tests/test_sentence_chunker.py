@@ -16,11 +16,17 @@ def test_sentence_chunker_invalid_params():
     """Test that the chunker raises errors for invalid parameters."""
     with pytest.raises(ValueError, match="chunk_size must be a positive integer."):
         SentenceChunker(chunk_size=0)
-    with pytest.raises(ValueError, match="chunk_overlap must be a non-negative integer."):
+    with pytest.raises(
+        ValueError, match="chunk_overlap must be a non-negative integer."
+    ):
         SentenceChunker(chunk_size=10, chunk_overlap=-1)
-    with pytest.raises(ValueError, match="chunk_overlap must be smaller than chunk_size."):
+    with pytest.raises(
+        ValueError, match="chunk_overlap must be smaller than chunk_size."
+    ):
         SentenceChunker(chunk_size=10, chunk_overlap=10)
-    with pytest.raises(ValueError, match="overlap_sentences must be a non-negative integer."):
+    with pytest.raises(
+        ValueError, match="overlap_sentences must be a non-negative integer."
+    ):
         SentenceChunker(chunk_size=10, overlap_sentences=-1)
 
 
@@ -67,8 +73,12 @@ def test_sentence_chunker_with_sentence_overlap():
     chunker = SentenceChunker(chunk_size=45, overlap_sentences=1)
     chunks = list(chunker.chunk(text))
     assert len(chunks) == 2
-    assert chunks[0].text_for_generation == "Sentence one. Sentence two. Sentence three."
-    assert chunks[1].text_for_generation == "Sentence three. Sentence four. Sentence five."
+    assert (
+        chunks[0].text_for_generation == "Sentence one. Sentence two. Sentence three."
+    )
+    assert (
+        chunks[1].text_for_generation == "Sentence three. Sentence four. Sentence five."
+    )
 
 
 def test_sentence_overlap_overrides_token_overlap():
@@ -78,8 +88,12 @@ def test_sentence_overlap_overrides_token_overlap():
     chunker = SentenceChunker(chunk_size=45, chunk_overlap=100, overlap_sentences=1)
     chunks = list(chunker.chunk(text))
     assert len(chunks) == 2
-    assert chunks[0].text_for_generation == "Sentence one. Sentence two. Sentence three."
-    assert chunks[1].text_for_generation == "Sentence three. Sentence four. Sentence five."
+    assert (
+        chunks[0].text_for_generation == "Sentence one. Sentence two. Sentence three."
+    )
+    assert (
+        chunks[1].text_for_generation == "Sentence three. Sentence four. Sentence five."
+    )
 
 
 def test_sentence_chunker_handles_abbreviations():
@@ -103,7 +117,9 @@ def test_sentence_chunker_handles_various_terminators():
 
 def test_sentence_chunker_long_sentence_fallback():
     """Test that a sentence longer than chunk_size becomes its own chunk."""
-    long_sentence = "This is a very long sentence that will definitely exceed the chunk size."
+    long_sentence = (
+        "This is a very long sentence that will definitely exceed the chunk size."
+    )
     text = f"A short sentence. {long_sentence} Another short sentence."
     chunker = SentenceChunker(chunk_size=50)
     chunks = list(chunker.chunk(text))
@@ -141,7 +157,9 @@ def test_sentence_chunker_with_custom_length_function_and_sentence_overlap():
 
     text = "One two three. Four five six. Seven eight nine. Ten eleven twelve."
     # Chunk into segments of <= 7 words, with an overlap of 1 sentence.
-    chunker = SentenceChunker(chunk_size=7, overlap_sentences=1, length_function=word_counter)
+    chunker = SentenceChunker(
+        chunk_size=7, overlap_sentences=1, length_function=word_counter
+    )
     chunks = list(chunker.chunk(text))
 
     assert len(chunks) == 3
