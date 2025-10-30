@@ -311,6 +311,22 @@ def test_recursive_chunker_custom_separators_and_no_keep():
     assert chunks[1].text_for_generation == "fourfive"
 
 
+def test_recursive_chunker_invalid_constructor_args():
+    """Test that the RecursiveCharacterChunker constructor validates its arguments."""
+    with pytest.raises(ValueError, match="chunk_size must be a positive integer."):
+        RecursiveCharacterChunker(chunk_size=0)
+
+    with pytest.raises(
+        ValueError, match="chunk_overlap must be a non-negative integer."
+    ):
+        RecursiveCharacterChunker(chunk_size=10, chunk_overlap=-1)
+
+    with pytest.raises(
+        ValueError, match="chunk_overlap must be smaller than chunk_size."
+    ):
+        RecursiveCharacterChunker(chunk_size=10, chunk_overlap=10)
+
+
 def test_recursive_chunker_empty_string():
     """Test that an empty string produces no chunks."""
     chunker = RecursiveCharacterChunker(chunk_size=10, chunk_overlap=0)
@@ -325,3 +341,71 @@ def test_recursive_chunker_small_string():
     chunks = list(chunker.chunk(text))
     assert len(chunks) == 1
     assert chunks[0].text_for_generation == "This is small."
+
+
+def test_recursive_chunker_re_error_fallback():
+    """
+    Test that a regex error during splitting falls back to character-wise split.
+    """
+    # The separator "(" is an invalid regex, causing a re.error
+    chunker = RecursiveCharacterChunker(chunk_size=2, separators=["("])
+    text = "a(b"
+    chunks = list(chunker.chunk(text))
+    # Should fall back to splitting by char, then merge them
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "a("
+    assert chunks[1].text_for_generation == "b"
+
+
+def test_fixed_size_chunker_avoids_empty_chunk():
+    """Test that the chunker avoids creating an empty chunk."""
+
+    def length_function(text: str) -> int:
+        if text == "a":
+            return 5
+        if text == "b":
+            return 5
+        if text == "ab":
+            return 11
+        return len(text)
+
+    text = "ab"
+    chunker = FixedSizeChunker(
+        chunk_size=10, chunk_overlap=0, length_function=length_function
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "a"
+    assert chunks[1].text_for_generation == "b"
+
+
+def test_fixed_size_chunker_overlap_edge_case():
+    """
+    Test a specific edge case in the overlap calculation that was previously missed.
+    This test ensures that when the overlap search results in a start position
+    that is less than or equal to the current start_char, the chunker advances
+    to the end of the current chunk.
+    """
+
+    # A length function where each character is size 3.
+    # So "abc" has length 9. "de" has length 6.
+    def length_function(text: str) -> int:
+        return len(text) * 3
+
+    text = "abcde"
+    # chunk_size = 10, chunk_overlap = 2
+    # 1. First chunk will be "abc" (length 9). end_char = 3.
+    # 2. Overlap search:
+    #    - start_of_overlap = 3
+    #    - text[2:3] = "c", length = 3. This is > chunk_overlap, so loop breaks.
+    #    - start_of_overlap remains 3.
+    #    - This means the new start_char will be 3, "de"
+    chunker = FixedSizeChunker(
+        chunk_size=10, chunk_overlap=2, length_function=length_function
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "abc"
+    assert chunks[1].text_for_generation == "de"
