@@ -101,9 +101,7 @@ def test_chunk_edge_cases():
     chunk_with_int_id = Chunk(text_for_generation="text", source_document_id=123)
     assert chunk_with_int_id.source_document_id == 123
 
-    chunk_with_str_id = Chunk(
-        text_for_generation="text", source_document_id="doc-abc"
-    )
+    chunk_with_str_id = Chunk(text_for_generation="text", source_document_id="doc-abc")
     assert chunk_with_str_id.source_document_id == "doc-abc"
 
     # Test with complex metadata
