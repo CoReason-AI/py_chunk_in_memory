@@ -37,15 +37,32 @@ class _Split:
 class BaseChunker(ABC):
     """Abstract base class for all chunking strategies."""
 
-    def __init__(self, length_function: Callable[[str], int] = len):
+    def __init__(
+        self,
+        length_function: Callable[[str], int] = len,
+        minimum_chunk_size: int = 0,
+        runt_handling: str = "keep",
+    ):
         """
         Initializes the BaseChunker.
 
         Args:
             length_function: A function that measures the size of a text string.
                              Defaults to `len`.
+            minimum_chunk_size: The minimum size for a chunk. Chunks smaller
+                                than this are considered "runts".
+            runt_handling: The policy for handling runts ("keep", "discard", "merge").
         """
+        if minimum_chunk_size < 0:
+            raise ValueError("minimum_chunk_size must be a non-negative integer.")
+        if runt_handling not in ["keep", "discard", "merge"]:
+            raise ValueError(
+                "runt_handling must be one of 'keep', 'discard', 'merge'."
+            )
+
         self._length_function = length_function
+        self._minimum_chunk_size = minimum_chunk_size
+        self._runt_handling = runt_handling
 
     @abstractmethod
     def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
@@ -61,14 +78,72 @@ class BaseChunker(ABC):
         """
         raise NotImplementedError
 
-    def _link_chunks(self, chunks: List[Chunk]) -> List[Chunk]:
-        """Sets the previous and next chunk IDs for a list of chunks."""
-        for i in range(len(chunks)):
-            if i > 0:
-                chunks[i].previous_chunk_id = chunks[i - 1].chunk_id
-            if i < len(chunks) - 1:
-                chunks[i].next_chunk_id = chunks[i + 1].chunk_id
+    def _handle_runts(
+        self, chunks: List[Chunk], chunk_size: int
+    ) -> List[Chunk]:
+        """Applies the configured policy for handling undersized chunks ("runts")."""
+        if self._runt_handling == "keep" or self._minimum_chunk_size == 0:
+            return chunks
+
+        if self._runt_handling == "discard":
+            return [
+                c
+                for c in chunks
+                if self._length_function(c.text_for_generation)
+                >= self._minimum_chunk_size
+            ]
+
+        # Policy: "merge"
+        # Iterate backwards to make merging with the previous element easier
+        i = len(chunks) - 1
+        while i > 0:
+            if (
+                self._length_function(chunks[i].text_for_generation)
+                < self._minimum_chunk_size
+            ):
+                prev_chunk = chunks[i - 1]
+                current_chunk = chunks[i]
+                combined_text = (
+                    prev_chunk.text_for_generation + current_chunk.text_for_generation
+                )
+
+                if self._length_function(combined_text) <= chunk_size:
+                    prev_chunk.text_for_generation = combined_text
+                    prev_chunk.end_char_index = current_chunk.end_char_index
+                    prev_chunk.token_count = self._length_function(combined_text)
+                    chunks.pop(i)
+            i -= 1
         return chunks
+
+    def _link_chunks(
+        self, chunks: List[Chunk], chunk_size: Optional[int] = None
+    ) -> List[Chunk]:
+        """
+        Applies runt handling and sets the previous/next chunk IDs for a list of chunks.
+        """
+        if self._runt_handling == "merge" and chunk_size is None:
+            raise ValueError(
+                "chunk_size must be provided to _link_chunks when using 'merge' runt handling."
+            )
+
+        processed_chunks = (
+            self._handle_runts(list(chunks), chunk_size)
+            if chunk_size is not None and self._minimum_chunk_size > 0
+            else list(chunks)
+        )
+
+        # Renumber sequence and link
+        for i, chunk in enumerate(processed_chunks):
+            chunk.sequence_number = i
+            if i > 0:
+                chunk.previous_chunk_id = processed_chunks[i - 1].chunk_id
+            if i < len(processed_chunks) - 1:
+                chunk.next_chunk_id = processed_chunks[i + 1].chunk_id
+            else:
+                # Ensure the last chunk's next_chunk_id is None after potential merges
+                chunk.next_chunk_id = None
+
+        return processed_chunks
 
 
 class FixedSizeChunker(BaseChunker):
@@ -81,6 +156,8 @@ class FixedSizeChunker(BaseChunker):
         chunk_size: int,
         chunk_overlap: int = 0,
         length_function: Callable[[str], int] = len,
+        minimum_chunk_size: int = 0,
+        runt_handling: str = "keep",
     ):
         """
         Initializes the FixedSizeChunker.
@@ -90,8 +167,14 @@ class FixedSizeChunker(BaseChunker):
             chunk_overlap: The desired overlap between consecutive chunks,
                            measured by `length_function`.
             length_function: The function to use for measuring text size.
+            minimum_chunk_size: The minimum size for a chunk.
+            runt_handling: The policy for handling runts.
         """
-        super().__init__(length_function=length_function)
+        super().__init__(
+            length_function=length_function,
+            minimum_chunk_size=minimum_chunk_size,
+            runt_handling=runt_handling,
+        )
         if chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer.")
         if chunk_overlap < 0:
@@ -181,7 +264,7 @@ class FixedSizeChunker(BaseChunker):
                     start_char = end_char
                 else:
                     start_char = start_of_overlap
-        return self._link_chunks(chunks)
+        return self._link_chunks(chunks, self.chunk_size)
 
 
 class RecursiveCharacterChunker(BaseChunker):
@@ -198,8 +281,14 @@ class RecursiveCharacterChunker(BaseChunker):
         length_function: Callable[[str], int] = len,
         separators: Optional[List[str]] = None,
         keep_separator: bool = True,
+        minimum_chunk_size: int = 0,
+        runt_handling: str = "keep",
     ):
-        super().__init__(length_function=length_function)
+        super().__init__(
+            length_function=length_function,
+            minimum_chunk_size=minimum_chunk_size,
+            runt_handling=runt_handling,
+        )
         if chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer.")
         if chunk_overlap < 0:
@@ -358,7 +447,7 @@ class RecursiveCharacterChunker(BaseChunker):
                     chunking_strategy_used="recursive_character",
                 )
             )
-        return self._link_chunks(final_chunks)
+        return self._link_chunks(final_chunks, self.chunk_size)
 
 
 class SentenceChunker(BaseChunker):
@@ -374,6 +463,8 @@ class SentenceChunker(BaseChunker):
         chunk_overlap: int = 0,
         length_function: Callable[[str], int] = len,
         overlap_sentences: int = 0,
+        minimum_chunk_size: int = 0,
+        runt_handling: str = "keep",
     ):
         """
         Initializes the SentenceChunker.
@@ -383,8 +474,14 @@ class SentenceChunker(BaseChunker):
             length_function: The function to measure text size.
             overlap_sentences: The number of sentences to overlap. If > 0, this
                                overrides `chunk_overlap`.
+            minimum_chunk_size: The minimum size for a chunk.
+            runt_handling: The policy for handling runts.
         """
-        super().__init__(length_function=length_function)
+        super().__init__(
+            length_function=length_function,
+            minimum_chunk_size=minimum_chunk_size,
+            runt_handling=runt_handling,
+        )
         if chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer.")
         if chunk_overlap < 0:
@@ -537,4 +634,4 @@ class SentenceChunker(BaseChunker):
                     chunking_strategy_used="sentence",
                 )
             )
-        return self._link_chunks(final_chunks)
+        return self._link_chunks(final_chunks, self.chunk_size)
