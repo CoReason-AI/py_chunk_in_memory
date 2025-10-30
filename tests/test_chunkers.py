@@ -9,11 +9,25 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 import pytest
+from py_chunk_in_memory.models import Chunk
 from py_chunk_in_memory.chunkers import (
     BaseChunker,
     FixedSizeChunker,
     RecursiveCharacterChunker,
 )
+
+
+class DummyChunker(BaseChunker):
+    """A chunker that returns a predefined list of chunks for testing."""
+
+    def __init__(self, chunks_to_return, chunk_size, **kwargs):
+        super().__init__(**kwargs)
+        self.chunks_to_return = chunks_to_return
+        self.chunk_size = chunk_size
+
+    def chunk(self, text: str, **kwargs):
+        # We ignore the text and just return our pre-canned chunks
+        return self._link_chunks(self.chunks_to_return, self.chunk_size)
 
 
 def test_base_chunker_can_be_instantiated_with_default_len_func():
@@ -38,6 +52,158 @@ def test_base_chunker_chunk_raises_not_implemented():
     chunker = MinimalChunker()
     with pytest.raises(NotImplementedError):
         chunker.chunk("test")
+
+
+def test_base_chunker_invalid_runt_handling_params():
+    """Verify BaseChunker constructor raises errors for invalid runt handling params."""
+    with pytest.raises(
+        ValueError, match="minimum_chunk_size must be a non-negative integer."
+    ):
+        FixedSizeChunker(chunk_size=10, minimum_chunk_size=-1)
+
+    with pytest.raises(
+        ValueError, match="runt_handling must be one of 'keep', 'discard', 'merge'."
+    ):
+        FixedSizeChunker(chunk_size=10, runt_handling="invalid_policy")
+
+
+def test_runt_handling_keep_policy():
+    """Test the 'keep' policy for runt handling (default behavior)."""
+    text = "This is a test. Runt."
+    # The last chunk " Runt." has length 6. The final chunk "." has length 1.
+    chunker = FixedSizeChunker(chunk_size=10, minimum_chunk_size=5)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "This is a "
+    assert chunks[1].text_for_generation == "test. Runt"
+    assert chunks[2].text_for_generation == "."
+    assert len(chunks[2].text_for_generation) < 5  # This is a runt
+
+
+def test_runt_handling_discard_policy():
+    """Test the 'discard' policy for runt handling."""
+    text = "This is a test. Runt."
+    # Last chunk will be "." (a runt of size 1)
+    chunker = FixedSizeChunker(
+        chunk_size=10, minimum_chunk_size=5, runt_handling="discard"
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "This is a "
+    assert chunks[1].text_for_generation == "test. Runt"
+
+
+def test_runt_handling_merge_policy():
+    """Test the 'merge' policy directly using the DummyChunker."""
+    pre_canned_chunks = [
+        Chunk(
+            text_for_generation="This is the first chunk.",
+            start_char_index=0,
+            end_char_index=24,
+        ),
+        Chunk(text_for_generation="Runt", start_char_index=25, end_char_index=29),
+    ]
+    chunker = DummyChunker(
+        pre_canned_chunks, chunk_size=30, minimum_chunk_size=10, runt_handling="merge"
+    )
+    chunks = chunker.chunk("doesn't matter")
+
+    assert len(chunks) == 1
+    assert chunks[0].text_for_generation == "This is the first chunk.Runt"
+    assert chunks[0].end_char_index == 29  # Verify end index is updated
+
+
+def test_runt_handling_merge_does_not_exceed_chunk_size():
+    """Test that merge policy does not merge if it would exceed original chunk size."""
+    pre_canned_chunks = [
+        Chunk(text_for_generation="1234567890", start_char_index=0, end_char_index=10),
+        Chunk(text_for_generation="Runt", start_char_index=11, end_char_index=15),
+    ]
+    # chunk_size is 10, merged size would be 14. Merge should be rejected.
+    chunker = DummyChunker(
+        pre_canned_chunks, chunk_size=10, minimum_chunk_size=5, runt_handling="merge"
+    )
+    chunks = chunker.chunk("doesn't matter")
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "1234567890"
+    assert chunks[1].text_for_generation == "Runt"
+
+
+def test_runt_handling_merge_first_chunk_is_runt():
+    """Test merge policy when the first chunk is a runt (it should be kept)."""
+    pre_canned_chunks = [
+        Chunk(text_for_generation="Runt", start_char_index=0, end_char_index=4),
+        Chunk(
+            text_for_generation="This is the second chunk.",
+            start_char_index=5,
+            end_char_index=29,
+        ),
+    ]
+    chunker = DummyChunker(
+        pre_canned_chunks, chunk_size=30, minimum_chunk_size=10, runt_handling="merge"
+    )
+    chunks = chunker.chunk("doesn't matter")
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "Runt"  # Kept because it has no predecessor
+    assert chunks[1].text_for_generation == "This is the second chunk."
+
+
+def test_runt_handling_merge_consecutive_runts():
+    """Test merge policy with multiple consecutive runts."""
+    pre_canned_chunks = [
+        Chunk(
+            text_for_generation="A long sentence.",
+            start_char_index=0,
+            end_char_index=16,
+        ),
+        Chunk(text_for_generation="Runt1.", start_char_index=17, end_char_index=23),
+        Chunk(text_for_generation="Runt2.", start_char_index=24, end_char_index=30),
+    ]
+    # Runt2 merges into Runt1. The result ("Runt1.Runt2.") is still a runt.
+    # This new runt then merges into the first sentence.
+    chunker = DummyChunker(
+        pre_canned_chunks,
+        chunk_size=35,  # Large enough to allow all merges
+        minimum_chunk_size=15,
+        runt_handling="merge",
+    )
+    chunks = chunker.chunk("doesn't matter")
+
+    assert len(chunks) == 1
+    assert chunks[0].text_for_generation == "A long sentence.Runt1.Runt2."
+    assert chunks[0].end_char_index == 30
+
+
+def test_runt_handling_updates_linking_and_sequence():
+    """Verify chunk IDs and sequence numbers are correct after runt handling."""
+    pre_canned_chunks = [
+        Chunk(text_for_generation="Chunk1"),
+        Chunk(text_for_generation="Runt1"),
+        Chunk(text_for_generation="Chunk2"),
+        Chunk(text_for_generation="Runt2"),
+    ]
+    # Runt1 merges into Chunk1, Runt2 merges into Chunk2
+    chunker = DummyChunker(
+        pre_canned_chunks, chunk_size=20, minimum_chunk_size=6, runt_handling="merge"
+    )
+    chunks = chunker.chunk("doesn't matter")
+
+    assert len(chunks) == 2
+    assert chunks[0].text_for_generation == "Chunk1Runt1"
+    assert chunks[1].text_for_generation == "Chunk2Runt2"
+
+    # Check sequence numbers
+    assert chunks[0].sequence_number == 0
+    assert chunks[1].sequence_number == 1
+
+    # Check linking
+    assert chunks[0].next_chunk_id == chunks[1].chunk_id
+    assert chunks[1].previous_chunk_id == chunks[0].chunk_id
+    assert chunks[1].next_chunk_id is None
 
 
 def test_fixed_size_chunker_basic():
