@@ -14,6 +14,7 @@ from py_chunk_in_memory.chunkers import (
     BaseChunker,
     FixedSizeChunker,
     RecursiveCharacterChunker,
+    SentenceChunker,
 )
 
 
@@ -544,6 +545,78 @@ def test_fixed_size_chunker_avoids_empty_chunk():
     assert len(chunks) == 2
     assert chunks[0].text_for_generation == "a"
     assert chunks[1].text_for_generation == "b"
+
+
+def test_fixed_size_chunker_propagates_source_metadata():
+    """Verify FixedSizeChunker correctly propagates source_metadata."""
+    text = "This is a test string for metadata propagation."
+    metadata = {"source": "test_document.txt", "version": 1}
+
+    # Test with metadata
+    chunker = FixedSizeChunker(chunk_size=10)
+    chunks = list(chunker.chunk(text, source_metadata=metadata))
+
+    assert len(chunks) > 0
+    for chunk in chunks:
+        assert chunk.metadata == metadata
+
+    # Ensure the original metadata object was copied, not referenced
+    chunks[0].metadata["new_key"] = "new_value"
+    assert "new_key" not in metadata
+
+    # Test without metadata
+    chunks_no_meta = list(chunker.chunk(text))
+    assert len(chunks_no_meta) > 0
+    for chunk in chunks_no_meta:
+        assert chunk.metadata == {}
+
+
+def test_recursive_character_chunker_propagates_source_metadata():
+    """Verify RecursiveCharacterChunker correctly propagates source_metadata."""
+    text = "This is a test string for metadata propagation."
+    metadata = {"source": "test_document.txt", "version": 1}
+
+    # Test with metadata
+    chunker = RecursiveCharacterChunker(chunk_size=20, separators=[". "])
+    chunks = list(chunker.chunk(text, source_metadata=metadata))
+
+    assert len(chunks) > 0
+    for chunk in chunks:
+        assert chunk.metadata == metadata
+
+    # Ensure the original metadata object was copied, not referenced
+    chunks[0].metadata["new_key"] = "new_value"
+    assert "new_key" not in metadata
+
+    # Test without metadata
+    chunks_no_meta = list(chunker.chunk(text))
+    assert len(chunks_no_meta) > 0
+    for chunk in chunks_no_meta:
+        assert chunk.metadata == {}
+
+
+def test_sentence_chunker_propagates_source_metadata():
+    """Verify SentenceChunker correctly propagates source_metadata."""
+    text = "This is a test. This is another test for metadata."
+    metadata = {"source": "test_document.txt", "version": 1}
+
+    # Test with metadata
+    chunker = SentenceChunker(chunk_size=30)
+    chunks = list(chunker.chunk(text, source_metadata=metadata))
+
+    assert len(chunks) > 0
+    for chunk in chunks:
+        assert chunk.metadata == metadata
+
+    # Ensure the original metadata object was copied, not referenced
+    chunks[0].metadata["new_key"] = "new_value"
+    assert "new_key" not in metadata
+
+    # Test without metadata
+    chunks_no_meta = list(chunker.chunk(text))
+    assert len(chunks_no_meta) > 0
+    for chunk in chunks_no_meta:
+        assert chunk.metadata == {}
 
 
 def test_runt_handling_merge_with_varied_sizes():
