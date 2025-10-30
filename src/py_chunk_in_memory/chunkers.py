@@ -11,7 +11,7 @@
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from py_chunk_in_memory.models import Chunk
 
@@ -63,12 +63,16 @@ class BaseChunker(ABC):
         self._runt_handling = runt_handling
 
     @abstractmethod
-    def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Iterable[Chunk]:
         """
         Splits a text into a sequence of chunks.
 
         Args:
             text: The input text to be chunked.
+            source_metadata: Optional dictionary of metadata to be propagated
+                               to every generated chunk.
             **kwargs: Additional parameters specific to the chunking strategy.
 
         Returns:
@@ -181,7 +185,9 @@ class FixedSizeChunker(BaseChunker):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
-    def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Iterable[Chunk]:
         """
         Splits a text into fixed-size chunks respecting the `length_function`.
         """
@@ -236,6 +242,7 @@ class FixedSizeChunker(BaseChunker):
                 sequence_number=sequence_number,
                 token_count=self._length_function(chunk_text),
                 chunking_strategy_used="fixed_size",
+                metadata=(source_metadata or {}).copy(),
             )
             chunks.append(chunk)
             sequence_number += 1
@@ -424,7 +431,9 @@ class RecursiveCharacterChunker(BaseChunker):
 
         return final_chunks
 
-    def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Iterable[Chunk]:
         if not text:
             return []
 
@@ -441,6 +450,7 @@ class RecursiveCharacterChunker(BaseChunker):
                     sequence_number=i,
                     token_count=self._length_function(chunk_text),
                     chunking_strategy_used="recursive_character",
+                    metadata=(source_metadata or {}).copy(),
                 )
             )
         return self._link_chunks(final_chunks, self.chunk_size)
@@ -608,7 +618,9 @@ class SentenceChunker(BaseChunker):
 
         return final_chunks
 
-    def chunk(self, text: str, **kwargs: Any) -> Iterable[Chunk]:
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Iterable[Chunk]:
         """
         Chunks the text by splitting it into sentences and then merging them.
         """
@@ -628,6 +640,7 @@ class SentenceChunker(BaseChunker):
                     sequence_number=i,
                     token_count=self._length_function(chunk_text),
                     chunking_strategy_used="sentence",
+                    metadata=(source_metadata or {}).copy(),
                 )
             )
         return self._link_chunks(final_chunks, self.chunk_size)
