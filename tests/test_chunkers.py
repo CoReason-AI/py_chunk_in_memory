@@ -27,7 +27,9 @@ class DummyChunker(BaseChunker):
         self.chunks_to_return = chunks_to_return
         self.chunk_size = chunk_size
 
-    def chunk(self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any):
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ):
         # We ignore the text and just return our pre-canned chunks
         return self._link_chunks(self.chunks_to_return, self.chunk_size)
 
@@ -37,7 +39,12 @@ def test_base_chunker_can_be_instantiated_with_default_len_func():
 
     # This is a concrete implementation for testing purposes
     class ConcreteChunker(BaseChunker):
-        def chunk(self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any):
+        def chunk(
+            self,
+            text: str,
+            source_metadata: Optional[Dict[str, Any]] = None,
+            **kwargs: Any,
+        ):
             yield from []  # pragma: no cover
 
     chunker = ConcreteChunker()
@@ -48,7 +55,12 @@ def test_base_chunker_chunk_raises_not_implemented():
     """Verify that calling chunk on a minimal subclass raises NotImplementedError."""
 
     class MinimalChunker(BaseChunker):
-        def chunk(self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any):
+        def chunk(
+            self,
+            text: str,
+            source_metadata: Optional[Dict[str, Any]] = None,
+            **kwargs: Any,
+        ):
             return super().chunk(text, **kwargs)  # type: ignore [safe-super]
 
     chunker = MinimalChunker()
@@ -661,7 +673,12 @@ def test_link_chunks_raises_error_for_merge_without_chunk_size():
         def __init__(self):
             super().__init__(minimum_chunk_size=10, runt_handling="merge")
 
-        def chunk(self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any):
+        def chunk(
+            self,
+            text: str,
+            source_metadata: Optional[Dict[str, Any]] = None,
+            **kwargs: Any,
+        ):
             pass  # pragma: no cover
 
         def test_link(self, chunks):
