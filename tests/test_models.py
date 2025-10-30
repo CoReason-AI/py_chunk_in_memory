@@ -89,3 +89,31 @@ def test_chunk_default_factories_are_independent():
     # Modify metadata of one to ensure it doesn't affect the other
     chunk1.metadata["key"] = "value"
     assert "key" not in chunk2.metadata
+
+
+def test_chunk_edge_cases():
+    """Test edge cases for the Chunk data model."""
+    # Test with empty text
+    empty_chunk = Chunk(text_for_generation="")
+    assert empty_chunk.text_for_generation == ""
+
+    # Test with various types for source_document_id
+    chunk_with_int_id = Chunk(text_for_generation="text", source_document_id=123)
+    assert chunk_with_int_id.source_document_id == 123
+
+    chunk_with_str_id = Chunk(
+        text_for_generation="text", source_document_id="doc-abc"
+    )
+    assert chunk_with_str_id.source_document_id == "doc-abc"
+
+    # Test with complex metadata
+    complex_meta = {"source": "web", "nested": {"key": [1, 2, 3]}}
+    chunk_with_meta = Chunk(text_for_generation="text", metadata=complex_meta)
+    assert chunk_with_meta.metadata == complex_meta
+
+    # Test with complex hierarchical context
+    complex_context = {"H1": "Main Title", "H2": "Subtitle", "P": 1}
+    chunk_with_context = Chunk(
+        text_for_generation="text", hierarchical_context=complex_context
+    )
+    assert chunk_with_context.hierarchical_context == complex_context
