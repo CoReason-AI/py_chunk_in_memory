@@ -380,6 +380,48 @@ def test_fixed_size_chunker_avoids_empty_chunk():
     assert chunks[1].text_for_generation == "b"
 
 
+def test_chunk_linking():
+    """Verify that previous_chunk_id and next_chunk_id are set correctly."""
+    text = "Chunk one. Chunk two. Chunk three."
+    chunker = FixedSizeChunker(chunk_size=12, chunk_overlap=2)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 4
+
+    # First chunk
+    assert chunks[0].previous_chunk_id is None
+    assert chunks[0].next_chunk_id == chunks[1].chunk_id
+
+    # Second chunk
+    assert chunks[1].previous_chunk_id == chunks[0].chunk_id
+    assert chunks[1].next_chunk_id == chunks[2].chunk_id
+
+    # Third chunk
+    assert chunks[2].previous_chunk_id == chunks[1].chunk_id
+    assert chunks[2].next_chunk_id == chunks[3].chunk_id
+
+    # Fourth chunk
+    assert chunks[3].previous_chunk_id == chunks[2].chunk_id
+    assert chunks[3].next_chunk_id is None
+
+
+def test_recursive_character_chunker_linking():
+    """Verify linking for the RecursiveCharacterChunker."""
+    text = "Sentence one. Sentence two. Sentence three."
+    chunker = RecursiveCharacterChunker(
+        chunk_size=15, chunk_overlap=5, separators=[". "]
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    assert chunks[0].previous_chunk_id is None
+    assert chunks[0].next_chunk_id == chunks[1].chunk_id
+    assert chunks[1].previous_chunk_id == chunks[0].chunk_id
+    assert chunks[1].next_chunk_id == chunks[2].chunk_id
+    assert chunks[2].previous_chunk_id == chunks[1].chunk_id
+    assert chunks[2].next_chunk_id is None
+
+
 def test_fixed_size_chunker_overlap_edge_case():
     """
     Test a specific edge case in the overlap calculation that was previously missed.

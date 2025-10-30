@@ -61,6 +61,15 @@ class BaseChunker(ABC):
         """
         raise NotImplementedError
 
+    def _link_chunks(self, chunks: List[Chunk]) -> List[Chunk]:
+        """Sets the previous and next chunk IDs for a list of chunks."""
+        for i in range(len(chunks)):
+            if i > 0:
+                chunks[i].previous_chunk_id = chunks[i - 1].chunk_id
+            if i < len(chunks) - 1:
+                chunks[i].next_chunk_id = chunks[i + 1].chunk_id
+        return chunks
+
 
 class FixedSizeChunker(BaseChunker):
     """
@@ -172,7 +181,7 @@ class FixedSizeChunker(BaseChunker):
                     start_char = end_char
                 else:
                     start_char = start_of_overlap
-        return chunks
+        return self._link_chunks(chunks)
 
 
 class RecursiveCharacterChunker(BaseChunker):
@@ -349,7 +358,7 @@ class RecursiveCharacterChunker(BaseChunker):
                     chunking_strategy_used="recursive_character",
                 )
             )
-        return final_chunks
+        return self._link_chunks(final_chunks)
 
 
 class SentenceChunker(BaseChunker):
@@ -528,4 +537,4 @@ class SentenceChunker(BaseChunker):
                     chunking_strategy_used="sentence",
                 )
             )
-        return final_chunks
+        return self._link_chunks(final_chunks)

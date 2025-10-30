@@ -214,3 +214,24 @@ def test_char_indices_with_varied_whitespace():
     assert chunks[1].text_for_generation == "Sentence three."
     assert chunks[1].start_char_index == 31
     assert chunks[1].end_char_index == 46
+
+
+def test_sentence_chunker_linking():
+    """Verify that previous_chunk_id and next_chunk_id are set correctly."""
+    text = "Sentence one. Sentence two. Sentence three."
+    chunker = SentenceChunker(chunk_size=20)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+
+    # First chunk
+    assert chunks[0].previous_chunk_id is None
+    assert chunks[0].next_chunk_id == chunks[1].chunk_id
+
+    # Second chunk
+    assert chunks[1].previous_chunk_id == chunks[0].chunk_id
+    assert chunks[1].next_chunk_id == chunks[2].chunk_id
+
+    # Third chunk
+    assert chunks[2].previous_chunk_id == chunks[1].chunk_id
+    assert chunks[2].next_chunk_id is None
