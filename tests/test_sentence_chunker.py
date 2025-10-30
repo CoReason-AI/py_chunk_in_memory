@@ -235,3 +235,21 @@ def test_sentence_chunker_linking():
     # Third chunk
     assert chunks[2].previous_chunk_id == chunks[1].chunk_id
     assert chunks[2].next_chunk_id is None
+
+
+def test_sentence_chunker_handles_oversized_sentence_in_middle():
+    """
+    Test that a very long sentence in the middle of a text is handled correctly,
+    and the surrounding context is not lost.
+    """
+    text = "Short one. A very very very very very long sentence in the middle. Short three."
+    chunker = SentenceChunker(chunk_size=20)
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "Short one."
+    assert (
+        chunks[1].text_for_generation
+        == "A very very very very very long sentence in the middle."
+    )
+    assert chunks[2].text_for_generation == "Short three."
