@@ -13,6 +13,7 @@ from py_chunk_in_memory.preprocessors import (
     PreprocessorStep,
     WhitespaceNormalizer,
     UnicodeNormalizer,
+    ArtifactRemover,
 )
 
 
@@ -163,3 +164,57 @@ class TestUnicodeNormalizer:
         text = "This is a standard string."
         normalizer = UnicodeNormalizer(form="NFC")
         assert normalizer.process(text) == text
+
+
+class TestArtifactRemover:
+    """Unit tests for the ArtifactRemover preprocessor."""
+
+    def test_initialization(self):
+        """Test that the remover compiles regex patterns upon initialization."""
+        patterns = [r"Page \d+", r"Header: .*"]
+        remover = ArtifactRemover(patterns=patterns)
+        assert len(remover.patterns) == 2
+        # Check that the compiled pattern matches the original string
+        assert remover.patterns[0][0].pattern == patterns[0]
+        assert remover.patterns[1][0].pattern == patterns[1]
+
+    def test_empty_string(self):
+        """Test that an empty string remains empty."""
+        remover = ArtifactRemover(patterns=[r"\d+"])
+        assert remover.process("") == ""
+
+    def test_no_artifacts_present(self):
+        """Test that text without any matching artifacts is unchanged."""
+        text = "This is a clean sentence without any artifacts."
+        remover = ArtifactRemover(patterns=[r"Page \d+", r"CONFIDENTIAL"])
+        assert remover.process(text) == text
+
+    def test_remove_single_pattern(self):
+        """Test removing artifacts based on a single regex pattern."""
+        text = "Here is some text. Page 1 This is the end."
+        remover = ArtifactRemover(patterns=[r"Page \d+ "])
+        assert remover.process(text) == "Here is some text. This is the end."
+
+    def test_remove_multiple_patterns(self):
+        """Test removing artifacts based on multiple regex patterns."""
+        text = "Header: Report\nSome important text.\nFooter: Internal Use Only"
+        remover = ArtifactRemover(patterns=[r"Header: .*\n", r"\nFooter: .*"])
+        assert remover.process(text) == "Some important text."
+
+    def test_multiple_occurrences_of_artifact(self):
+        """Test removing multiple occurrences of the same artifact."""
+        text = "First part. [DRAFT] Second part. [DRAFT] Third part."
+        remover = ArtifactRemover(patterns=[r"\[DRAFT\] "])
+        assert remover.process(text) == "First part. Second part. Third part."
+
+    def test_no_patterns_provided(self):
+        """Test that providing an empty list of patterns results in no changes."""
+        text = "This text has Page 1 and a Header."
+        remover = ArtifactRemover(patterns=[])
+        assert remover.process(text) == text
+
+    def test_patterns_that_do_not_match(self):
+        """Test that non-matching patterns do not alter the text."""
+        text = "A simple string."
+        remover = ArtifactRemover(patterns=[r"\d{5}", r"Chapter \d+"])
+        assert remover.process(text) == text

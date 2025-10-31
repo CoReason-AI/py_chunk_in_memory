@@ -104,3 +104,34 @@ class UnicodeNormalizer(PreprocessorStep):
         import unicodedata
 
         return unicodedata.normalize(self.form, text)  # type: ignore[arg-type]
+
+
+class ArtifactRemover(PreprocessorStep):
+    """
+        A preprocessor to remove common text extraction artifacts using regex.
+
+        This is useful for cleaning up text that has been extracted from formats
+        like PDF or HTML, which may contain repeating headers, footers, page
+    numbers,
+        or other unwanted elements.
+    """
+
+    def __init__(self, patterns: list[str]):
+        """
+        Initializes the ArtifactRemover.
+
+        Args:
+            patterns: A list of regular expression patterns to match and remove.
+        """
+        import re
+
+        self.patterns = [(re.compile(p), "") for p in patterns]
+
+    def process(self, text: str) -> str:
+        """
+        Removes all occurrences of the specified patterns from the text.
+        """
+        processed_text = text
+        for pattern, repl in self.patterns:
+            processed_text = pattern.sub(repl, processed_text)
+        return processed_text
