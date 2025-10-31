@@ -8,7 +8,6 @@
 #
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
-import pytest
 from py_chunk_in_memory.chunkers import (
     RecursiveCharacterChunker,
     FixedSizeChunker,
@@ -57,6 +56,7 @@ def test_fixed_size_chunker_overlap_greater_than_chunk_content():
     handle this by effectively starting the next chunk immediately after the
     previous one.
     """
+
     # A length function where 'X' is an oversized character
     def length_function(text: str) -> int:
         return 100 if "X" in text else len(text)
