@@ -50,9 +50,7 @@ class _IDRRenderer(BaseRenderer):  # type: ignore[misc]
         self.root = Element(type="root")
         self.stack: List[Element] = [self.root]
 
-    def __call__(
-        self, tokens: List[Dict[str, Any]], state: Dict[str, Any]
-    ) -> Element:
+    def __call__(self, tokens: List[Dict[str, Any]], state: Dict[str, Any]) -> Element:
         self.render(tokens, state)
         return self.root
 
@@ -92,9 +90,7 @@ class _IDRRenderer(BaseRenderer):  # type: ignore[misc]
         element = Element(type="li")
         self._get_current_parent().add_child(element)
 
-    def block_code(
-        self, code: str, info: Optional[str], state: Dict[str, Any]
-    ) -> None:
+    def block_code(self, code: str, info: Optional[str], state: Dict[str, Any]) -> None:
         element = Element(type="code_block", text=code)
         if info:
             element.metadata = {"language": info.strip()}

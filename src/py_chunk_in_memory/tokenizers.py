@@ -10,6 +10,7 @@
 
 from typing import Callable
 
+
 def get_tiktoken_counter(
     model_name: str, special_tokens_handling: bool = False
 ) -> Callable[[str], int]:

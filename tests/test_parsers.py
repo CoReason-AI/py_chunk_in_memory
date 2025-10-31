@@ -206,9 +206,7 @@ def test_inline_formatting() -> None:
     # This is a bit complex due to how mistune creates text and inline elements
     # A simpler approach is to check the concatenated text content
 
-    text_parts = [
-        child.text for child in paragraph.children if hasattr(child, "text")
-    ]
+    text_parts = [child.text for child in paragraph.children if hasattr(child, "text")]
     assert "".join(text_parts) == "This is bold, italic, and code."
 
     element_types = [child.type for child in paragraph.children]
