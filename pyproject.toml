@@ -26,6 +26,30 @@ optional = true
 tiktoken = ">=0.7.0"
 transformers = ">=4.41.2"
 
+[tool.poetry.group.nlp]
+optional = true
+[tool.poetry.group.nlp.dependencies]
+
+[tool.poetry.group.semantic]
+optional = true
+[tool.poetry.group.semantic.dependencies]
+
+[tool.poetry.group.code]
+optional = true
+[tool.poetry.group.code.dependencies]
+
+[tool.poetry.group.structured]
+optional = true
+[tool.poetry.group.structured.dependencies]
+
+[tool.poetry.group.frameworks]
+optional = true
+[tool.poetry.group.frameworks.dependencies]
+
+[tool.poetry.group.visualization]
+optional = true
+[tool.poetry.group.visualization.dependencies]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -64,6 +88,12 @@ tokenizers = [
     "tiktoken>=0.7.0",
     "transformers>=4.41.2",
 ]
+nlp = []
+semantic = []
+code = []
+structured = []
+frameworks = []
+visualization = []
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
