@@ -103,4 +103,4 @@ class UnicodeNormalizer(PreprocessorStep):
         """
         import unicodedata
 
-        return unicodedata.normalize(self.form, text)
+        return unicodedata.normalize(self.form, text)  # type: ignore[arg-type]

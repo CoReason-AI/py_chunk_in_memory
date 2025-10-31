@@ -9,7 +9,11 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 import pytest
-from py_chunk_in_memory.preprocessors import PreprocessorStep, WhitespaceNormalizer, UnicodeNormalizer
+from py_chunk_in_memory.preprocessors import (
+    PreprocessorStep,
+    WhitespaceNormalizer,
+    UnicodeNormalizer,
+)
 
 
 class TestWhitespaceNormalizer:
@@ -114,7 +118,9 @@ class TestUnicodeNormalizer:
 
     def test_initialization_invalid_form(self):
         """Test that initialization fails with an invalid normalization form."""
-        with pytest.raises(ValueError, match="form must be one of 'NFC', 'NFKC', 'NFD', 'NFKD'"):
+        with pytest.raises(
+            ValueError, match="form must be one of 'NFC', 'NFKC', 'NFD', 'NFKD'"
+        ):
             UnicodeNormalizer(form="INVALID")
 
     def test_initialization_default_form(self):
@@ -132,15 +138,19 @@ class TestUnicodeNormalizer:
         [
             # NFC: Composed form
             ("NFC", "\u0065\u0301", "\u00e9"),  # e + ´ -> é
-            ("NFC", "\u00e9", "\u00e9"),       # é -> é (already composed)
+            ("NFC", "\u00e9", "\u00e9"),  # é -> é (already composed)
             # NFD: Decomposed form
             ("NFD", "\u00e9", "\u0065\u0301"),  # é -> e + ´
-            ("NFD", "\u0065\u0301", "\u0065\u0301"), # e + ´ -> e + ´ (already decomposed)
+            (
+                "NFD",
+                "\u0065\u0301",
+                "\u0065\u0301",
+            ),  # e + ´ -> e + ´ (already decomposed)
             # NFKC: Compatibility composed
-            ("NFKC", "\uFB01", "fi"),          # ﬁ -> fi
+            ("NFKC", "\ufb01", "fi"),  # ﬁ -> fi
             # NFKD: Compatibility decomposed
-            ("NFKD", "\uFB01", "fi"),          # ﬁ -> fi
-            ("NFKD", "1\u2075", "15"),        # ¹⁵ -> 15
+            ("NFKD", "\ufb01", "fi"),  # ﬁ -> fi
+            ("NFKD", "1\u2075", "15"),  # ¹⁵ -> 15
         ],
     )
     def test_normalization_forms(self, form: str, text: str, expected: str):
