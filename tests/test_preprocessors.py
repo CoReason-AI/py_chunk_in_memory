@@ -198,9 +198,7 @@ class TestArtifactRemover:
     def test_remove_multiple_patterns(self):
         """Test removing artifacts based on multiple regex patterns."""
         text = "Header: Report\nSome important text.\nFooter: Internal Use Only"
-        remover = ArtifactRemover(
-            patterns=[r"Header: .*\n", r"\nFooter: .*"]
-        )
+        remover = ArtifactRemover(patterns=[r"Header: .*\n", r"\nFooter: .*"])
         assert remover.process(text) == "Some important text."
 
     def test_multiple_occurrences_of_artifact(self):

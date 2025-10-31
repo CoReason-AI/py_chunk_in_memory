@@ -108,12 +108,12 @@ class UnicodeNormalizer(PreprocessorStep):
 
 class ArtifactRemover(PreprocessorStep):
     """
-    A preprocessor to remove common text extraction artifacts using regex.
+        A preprocessor to remove common text extraction artifacts using regex.
 
-    This is useful for cleaning up text that has been extracted from formats
-    like PDF or HTML, which may contain repeating headers, footers, page
-numbers,
-    or other unwanted elements.
+        This is useful for cleaning up text that has been extracted from formats
+        like PDF or HTML, which may contain repeating headers, footers, page
+    numbers,
+        or other unwanted elements.
     """
 
     def __init__(self, patterns: list[str]):
