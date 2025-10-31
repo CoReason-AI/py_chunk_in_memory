@@ -1652,10 +1652,16 @@ files = [
 watchmedo = ["PyYAML (>=3.10)"]
 
 [extras]
+code = []
 dev = ["mkdocs", "mkdocs-material", "pre-commit", "pytest", "pytest-cov", "ruff"]
+frameworks = []
+nlp = []
+semantic = []
+structured = []
 tokenizers = ["tiktoken", "transformers"]
+visualization = []
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <3.15"
-content-hash = "ee511915462d1fc7b85914fc24260e67e2239ca50f806e332a2623f203bb0299"
+content-hash = "148a96cd35d728324987ab24a3383b8c6048354cb2578bdd8fcee6762f41ef29"
