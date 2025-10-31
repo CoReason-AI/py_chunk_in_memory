@@ -16,7 +16,7 @@ from py_chunk_in_memory.parsers import IDRParser
 def test_idr_parser_cannot_be_instantiated() -> None:
     """Verify that the abstract BaseChunker class cannot be instantiated."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class IDRParser"):
-        IDRParser()
+        IDRParser()  # type: ignore[abstract]
 
 
 def test_idr_parser_subclass_must_implement_parse() -> None:
@@ -25,8 +25,10 @@ def test_idr_parser_subclass_must_implement_parse() -> None:
     class IncompleteParser(IDRParser):
         pass
 
-    with pytest.raises(TypeError, match="Can't instantiate abstract class IncompleteParser"):
-        IncompleteParser()
+    with pytest.raises(
+        TypeError, match="Can't instantiate abstract class IncompleteParser"
+    ):
+        IncompleteParser()  # type: ignore[abstract]
 
 
 def test_idr_parser_parse_method_raises_not_implemented() -> None:
@@ -34,7 +36,7 @@ def test_idr_parser_parse_method_raises_not_implemented() -> None:
 
     class ConcreteParser(IDRParser):
         def parse(self, text: str) -> str:
-            return super().parse(text)
+            return super().parse(text)  # type: ignore [safe-super]
 
     parser = ConcreteParser()
     with pytest.raises(NotImplementedError):
