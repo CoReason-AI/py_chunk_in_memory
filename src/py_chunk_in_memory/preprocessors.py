@@ -149,3 +149,30 @@ class DehyphenationPreprocessor(PreprocessorStep):
         # This regex looks for a hyphen followed by optional whitespace and a
         # newline, and replaces it with an empty string to join the word.
         return re.sub(r"-\s*\n\s*", "", text)
+
+
+class EmbeddingNormalizer(PreprocessorStep):
+    """
+    A preprocessor to apply normalizations suitable for embedding models.
+
+    As per FRD R-2.2.5, this can include lowercasing and stop word removal.
+    This initial implementation focuses on lowercasing.
+    """
+
+    def __init__(self, lowercase: bool = True):
+        """
+        Initializes the EmbeddingNormalizer.
+
+        Args:
+            lowercase: If True, converts the text to lowercase. Defaults to True.
+        """
+        self.lowercase = lowercase
+
+    def process(self, text: str) -> str:
+        """
+        Applies embedding-specific normalizations to the text.
+        """
+        processed_text = text
+        if self.lowercase:
+            processed_text = processed_text.lower()
+        return processed_text
