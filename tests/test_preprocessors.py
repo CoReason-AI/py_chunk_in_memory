@@ -9,7 +9,11 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 import pytest
-from py_chunk_in_memory.preprocessors import PreprocessorStep, WhitespaceNormalizer
+from py_chunk_in_memory.preprocessors import (
+    PreprocessorStep,
+    WhitespaceNormalizer,
+    UnicodeNormalizer,
+)
 
 
 class TestWhitespaceNormalizer:
@@ -107,3 +111,55 @@ def test_preprocessor_step_abc_process_raises_not_implemented():
     preprocessor = MinimalPreprocessor()
     with pytest.raises(NotImplementedError):
         preprocessor.process("test")
+
+
+class TestUnicodeNormalizer:
+    """Unit tests for the UnicodeNormalizer preprocessor."""
+
+    def test_initialization_invalid_form(self):
+        """Test that initialization fails with an invalid normalization form."""
+        with pytest.raises(
+            ValueError, match="form must be one of 'NFC', 'NFKC', 'NFD', 'NFKD'"
+        ):
+            UnicodeNormalizer(form="INVALID")
+
+    def test_initialization_default_form(self):
+        """Test that the default normalization form is 'NFC'."""
+        normalizer = UnicodeNormalizer()
+        assert normalizer.form == "NFC"
+
+    def test_empty_string(self):
+        """Test that an empty string remains empty after processing."""
+        normalizer = UnicodeNormalizer()
+        assert normalizer.process("") == ""
+
+    @pytest.mark.parametrize(
+        "form, text, expected",
+        [
+            # NFC: Composed form
+            ("NFC", "\u0065\u0301", "\u00e9"),  # e + ´ -> é
+            ("NFC", "\u00e9", "\u00e9"),  # é -> é (already composed)
+            # NFD: Decomposed form
+            ("NFD", "\u00e9", "\u0065\u0301"),  # é -> e + ´
+            (
+                "NFD",
+                "\u0065\u0301",
+                "\u0065\u0301",
+            ),  # e + ´ -> e + ´ (already decomposed)
+            # NFKC: Compatibility composed
+            ("NFKC", "\ufb01", "fi"),  # ﬁ -> fi
+            # NFKD: Compatibility decomposed
+            ("NFKD", "\ufb01", "fi"),  # ﬁ -> fi
+            ("NFKD", "1\u2075", "15"),  # ¹⁵ -> 15
+        ],
+    )
+    def test_normalization_forms(self, form: str, text: str, expected: str):
+        """Test all four Unicode normalization forms."""
+        normalizer = UnicodeNormalizer(form=form)
+        assert normalizer.process(text) == expected
+
+    def test_no_changes_needed(self):
+        """Test that a standard ASCII string is not modified."""
+        text = "This is a standard string."
+        normalizer = UnicodeNormalizer(form="NFC")
+        assert normalizer.process(text) == text
