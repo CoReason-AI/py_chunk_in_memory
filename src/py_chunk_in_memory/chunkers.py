@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from py_chunk_in_memory.models import Chunk
+from py_chunk_in_memory.parsers import IDRParser
 
 
 @dataclass
@@ -454,6 +455,68 @@ class RecursiveCharacterChunker(BaseChunker):
                 )
             )
         return self._link_chunks(final_chunks, self.chunk_size)
+
+
+class StructureAwareChunker(BaseChunker):
+    """
+    Chunks text by leveraging the document's structural hierarchy, as parsed
+    from an Intermediate Document Representation (IDR).
+    """
+
+    def __init__(
+        self,
+        parser: IDRParser,
+        chunk_size: int,
+        chunk_overlap: int = 0,
+        length_function: Callable[[str], int] = len,
+        minimum_chunk_size: int = 0,
+        runt_handling: str = "keep",
+        add_breadcrumb_to_metadata: bool = True,
+        prepend_breadcrumb_to_content: bool = False,
+    ):
+        """
+        Initializes the StructureAwareChunker.
+
+        Args:
+            parser: An instance of IDRParser to convert the document into an IDR.
+            chunk_size: The maximum size of each chunk.
+            chunk_overlap: The overlap between consecutive chunks.
+            length_function: The function to measure text size.
+            minimum_chunk_size: The minimum size for a chunk.
+            runt_handling: The policy for handling runts.
+            add_breadcrumb_to_metadata: If True, stores the hierarchical context
+                                        in the chunk's metadata.
+            prepend_breadcrumb_to_content: If True, prepends the hierarchical
+                                           context to the chunk's content.
+        """
+        super().__init__(
+            length_function=length_function,
+            minimum_chunk_size=minimum_chunk_size,
+            runt_handling=runt_handling,
+        )
+        if not isinstance(parser, IDRParser):
+            raise TypeError("parser must be an instance of IDRParser.")
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer.")
+        if chunk_overlap < 0:
+            raise ValueError("chunk_overlap must be a non-negative integer.")
+        if chunk_overlap >= chunk_size:
+            raise ValueError("chunk_overlap must be smaller than chunk_size.")
+
+        self.parser = parser
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.add_breadcrumb_to_metadata = add_breadcrumb_to_metadata
+        self.prepend_breadcrumb_to_content = prepend_breadcrumb_to_content
+
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Iterable[Chunk]:
+        """
+        Chunks the text by parsing it into an IDR and then splitting based on
+        structural boundaries. (Not yet implemented)
+        """
+        raise NotImplementedError
 
 
 class SentenceChunker(BaseChunker):
