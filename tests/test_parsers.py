@@ -23,7 +23,7 @@ def test_idr_parser_parse_raises_not_implemented():
 
     class MinimalParser(IDRParser):
         def parse(self, text: str):
-            return super().parse(text)
+            return super().parse(text)  # type: ignore [safe-super]
 
     parser = MinimalParser()
     with pytest.raises(NotImplementedError):

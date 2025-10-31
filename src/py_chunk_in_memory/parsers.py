@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable
+from typing import Any
 
 
 class IDRParser(ABC):
