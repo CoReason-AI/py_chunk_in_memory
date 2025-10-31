@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from py_chunk_in_memory.models import Chunk
+from py_chunk_in_memory.parsers import IDRParser
 
 
 @dataclass
@@ -454,6 +455,69 @@ class RecursiveCharacterChunker(BaseChunker):
                 )
             )
         return self._link_chunks(final_chunks, self.chunk_size)
+
+
+class StructureAwareChunker(BaseChunker):
+    """
+    Chunks text by leveraging its structural elements, as parsed from an
+    Intermediate Document Representation (IDR).
+    """
+
+    def __init__(
+        self,
+        parser: IDRParser,
+        chunk_size: int,
+        chunk_overlap: int = 0,
+        length_function: Callable[[str], int] = len,
+        minimum_chunk_size: int = 0,
+        runt_handling: str = "keep",
+    ):
+        """
+        Initializes the StructureAwareChunker.
+
+        Args:
+            parser: An IDRParser instance to parse the input text.
+            chunk_size: The maximum size of each chunk.
+            chunk_overlap: The desired overlap between chunks.
+            length_function: The function to measure text size.
+            minimum_chunk_size: The minimum size for a chunk.
+            runt_handling: The policy for handling runts.
+        """
+        super().__init__(
+            length_function=length_function,
+            minimum_chunk_size=minimum_chunk_size,
+            runt_handling=runt_handling,
+        )
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be a positive integer.")
+
+        self.parser = parser
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+
+    def chunk(
+        self, text: str, source_metadata: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Iterable[Chunk]:
+        """
+        Chunks the text based on its parsed structure.
+
+        Note: This is a placeholder implementation. The actual logic will be
+              developed in a subsequent step.
+        """
+        if not text:
+            return []
+
+        # Placeholder: For now, fall back to a simple fixed-size chunking behavior
+        # to ensure the class is testable.
+        fallback_chunker = FixedSizeChunker(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            length_function=self._length_function,
+        )
+        chunks = list(fallback_chunker.chunk(text, source_metadata=source_metadata))
+        for chunk in chunks:
+            chunk.chunking_strategy_used = "structure_aware"
+        return chunks
 
 
 class SentenceChunker(BaseChunker):

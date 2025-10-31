@@ -16,7 +16,9 @@ from py_chunk_in_memory.chunkers import (
     FixedSizeChunker,
     RecursiveCharacterChunker,
     SentenceChunker,
+    StructureAwareChunker,
 )
+from py_chunk_in_memory.parsers import IDRParser
 
 
 class DummyChunker(BaseChunker):
@@ -558,6 +560,47 @@ def test_fixed_size_chunker_avoids_empty_chunk():
     assert len(chunks) == 2
     assert chunks[0].text_for_generation == "a"
     assert chunks[1].text_for_generation == "b"
+
+
+class DummyParser(IDRParser):
+    """A dummy parser that returns a predefined structure for testing."""
+
+    def __init__(self, parsed_structure: Any):
+        self.parsed_structure = parsed_structure
+
+    def parse(self, text: str) -> Any:
+        return self.parsed_structure
+
+
+def test_structure_aware_chunker_can_be_instantiated():
+    """Verify that the StructureAwareChunker can be instantiated."""
+    parser = DummyParser(parsed_structure=None)
+    chunker = StructureAwareChunker(parser=parser, chunk_size=100)
+    assert chunker.chunk_size == 100
+    assert chunker.parser is parser
+
+
+def test_structure_aware_chunker_handles_basic_text():
+    """Test the placeholder implementation of StructureAwareChunker."""
+    text = "This is a simple test."
+    parser = DummyParser(parsed_structure=None)
+    chunker = StructureAwareChunker(parser=parser, chunk_size=10)
+    chunks = list(chunker.chunk(text))
+
+    # The placeholder implementation uses FixedSizeChunker
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "This is a "
+    assert chunks[1].text_for_generation == "simple tes"
+    assert chunks[2].text_for_generation == "t."
+    for chunk in chunks:
+        assert chunk.chunking_strategy_used == "structure_aware"
+
+
+def test_structure_aware_chunker_invalid_params():
+    """Test that the chunker raises errors for invalid parameters."""
+    parser = DummyParser(parsed_structure=None)
+    with pytest.raises(ValueError, match="chunk_size must be a positive integer."):
+        StructureAwareChunker(parser=parser, chunk_size=0)
 
 
 def test_fixed_size_chunker_avoids_empty_chunk_on_stateful_length_function():
