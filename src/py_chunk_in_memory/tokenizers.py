@@ -10,16 +10,6 @@
 
 from typing import Callable
 
-try:
-    import tiktoken
-except ImportError:
-    tiktoken = None
-
-try:
-    from transformers import AutoTokenizer
-except ImportError:
-    AutoTokenizer = None
-
 
 def get_tiktoken_counter(
     model_name: str, special_tokens_handling: bool = False
@@ -34,7 +24,9 @@ def get_tiktoken_counter(
     Returns:
         A function that takes a string and returns the number of tokens.
     """
-    if tiktoken is None:
+    try:
+        import tiktoken
+    except ImportError:
         raise ImportError(
             "tiktoken is not installed. Please install it with `pip install py_chunk_in_memory[tokenizers]`"
         )
@@ -62,7 +54,9 @@ def get_huggingface_counter(
     Returns:
         A function that takes a string and returns the number of tokens.
     """
-    if AutoTokenizer is None:
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
         raise ImportError(
             "transformers is not installed. Please install it with `pip install py_chunk_in_memory[tokenizers]`"
         )
