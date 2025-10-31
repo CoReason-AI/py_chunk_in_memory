@@ -41,6 +41,7 @@ optional = true
 [tool.poetry.group.structured]
 optional = true
 [tool.poetry.group.structured.dependencies]
+mistune = "^3.1.4"
 
 [tool.poetry.group.frameworks]
 optional = true
@@ -91,7 +92,7 @@ tokenizers = [
 nlp = []
 semantic = []
 code = []
-structured = []
+structured = ["mistune>=3.1.4"]
 frameworks = []
 visualization = []
 

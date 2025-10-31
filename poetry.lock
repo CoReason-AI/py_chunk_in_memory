@@ -660,6 +660,18 @@ files = [
 ]
 
 [[package]]
+name = "mistune"
+version = "3.1.4"
+description = "A sane and fast Markdown parser with useful plugins and renderers"
+optional = false
+python-versions = ">=3.8"
+groups = ["main", "structured"]
+files = [
+    {file = "mistune-3.1.4-py3-none-any.whl", hash = "sha256:93691da911e5d9d2e23bc54472892aff676df27a75274962ff9edc210364266d"},
+    {file = "mistune-3.1.4.tar.gz", hash = "sha256:b5a7f801d389f724ec702840c11d8fc48f2b33519102fc7ee739e8177b672164"},
+]
+
+[[package]]
 name = "mkdocs"
 version = "1.6.1"
 description = "Project documentation with Markdown."
@@ -1657,11 +1669,11 @@ dev = ["mkdocs", "mkdocs-material", "pre-commit", "pytest", "pytest-cov", "ruff"
 frameworks = []
 nlp = []
 semantic = []
-structured = []
+structured = ["mistune"]
 tokenizers = ["tiktoken", "transformers"]
 visualization = []
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <3.15"
-content-hash = "148a96cd35d728324987ab24a3383b8c6048354cb2578bdd8fcee6762f41ef29"
+content-hash = "5dd4246f5231d8fd485205b40f07d3469b6f97cf085bfa2aa44fa199180b4e17"
