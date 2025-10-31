@@ -15,6 +15,7 @@ from py_chunk_in_memory.preprocessors import (
     UnicodeNormalizer,
     ArtifactRemover,
     DehyphenationPreprocessor,
+    EmbeddingNormalizer,
 )
 
 
@@ -268,3 +269,49 @@ class TestDehyphenationPreprocessor:
         expected = "This is a word that was split with extra space: hyphenated."
         preprocessor = DehyphenationPreprocessor()
         assert preprocessor.process(text) == expected
+
+
+class TestEmbeddingNormalizer:
+    """Unit tests for the EmbeddingNormalizer preprocessor."""
+
+    def test_initialization_default(self):
+        """Test default initialization enables lowercasing."""
+        normalizer = EmbeddingNormalizer()
+        assert normalizer.lowercase is True
+
+    def test_initialization_explicit(self):
+        """Test explicit initialization of parameters."""
+        normalizer_false = EmbeddingNormalizer(lowercase=False)
+        assert normalizer_false.lowercase is False
+        normalizer_true = EmbeddingNormalizer(lowercase=True)
+        assert normalizer_true.lowercase is True
+
+    def test_empty_string(self):
+        """Test that an empty string remains empty."""
+        normalizer = EmbeddingNormalizer()
+        assert normalizer.process("") == ""
+
+    def test_lowercase_enabled_mixed_case(self):
+        """Test lowercasing on a mixed-case string."""
+        text = "This is a Mixed-Case STRING with NUMBERS 123."
+        expected = "this is a mixed-case string with numbers 123."
+        normalizer = EmbeddingNormalizer(lowercase=True)
+        assert normalizer.process(text) == expected
+
+    def test_lowercase_enabled_already_lowercase(self):
+        """Test lowercasing on an already lowercase string."""
+        text = "this is already lowercase."
+        normalizer = EmbeddingNormalizer(lowercase=True)
+        assert normalizer.process(text) == text
+
+    def test_lowercase_disabled(self):
+        """Test that the text is unchanged when lowercasing is disabled."""
+        text = "This STRING Should NOT be Changed."
+        normalizer = EmbeddingNormalizer(lowercase=False)
+        assert normalizer.process(text) == text
+
+    def test_string_with_no_alphabetic_chars(self):
+        """Test a string with only numbers and symbols."""
+        text = "123 !@#$%^&*()_+"
+        normalizer = EmbeddingNormalizer(lowercase=True)
+        assert normalizer.process(text) == text
