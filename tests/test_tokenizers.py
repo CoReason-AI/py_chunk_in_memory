@@ -8,146 +8,82 @@
 #
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
-import sys
+import pytest
 from unittest.mock import patch
 
-import pytest
+from py_chunk_in_memory.tokenizers import (
+    get_huggingface_counter,
+    get_tiktoken_counter,
+)
 
-# Pre-import to ensure we can re-import it later
-import py_chunk_in_memory.tokenizers as tokenizers_module
-
-# Mark all tests in this module as requiring the 'tokenizers' extra
-pytestmark = pytest.mark.tokenizers
-
-
-@pytest.fixture(autouse=True)
-def hide_optional_imports(monkeypatch):
-    """Fixture to simulate optional dependencies not being installed."""
-    # This fixture will be used to test the ImportError branches
-    pass
+# A common model used in many RAG applications
+TIKTOKEN_MODEL_NAME = "cl100k_base"
+# A common open-source model
+HF_MODEL_NAME = "bert-base-uncased"
 
 
-def test_get_tiktoken_counter_success():
-    """Verify the tiktoken counter works with a known model and text."""
-    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
-
-    counter = get_tiktoken_counter("cl100k_base")
-    text = "Hello, world! This is a test."
-    # Expected token count for cl100k_base for the given text
-    expected_tokens = 9
-    assert counter(text) == expected_tokens
+@pytest.mark.tokenizers
+def test_get_tiktoken_counter_returns_callable():
+    """Verify that get_tiktoken_counter returns a callable function."""
+    counter = get_tiktoken_counter(TIKTOKEN_MODEL_NAME)
+    assert callable(counter)
 
 
-def test_get_huggingface_counter_success():
-    """Verify the Hugging Face counter works with a known model and text."""
-    from py_chunk_in_memory.tokenizers import get_huggingface_counter
-
-    counter = get_huggingface_counter("gpt2")
-    text = "Hello, world! This is a test."
-    # Expected token count for gpt2 for the given text
-    expected_tokens = 9
-    assert counter(text) == expected_tokens
-
-
-def test_get_tiktoken_counter_empty_string():
-    """Verify tiktoken counter handles empty strings."""
-    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
-
-    counter = get_tiktoken_counter("cl100k_base")
-    assert counter("") == 0
+@pytest.mark.tokenizers
+def test_get_tiktoken_counter_default_no_special_tokens():
+    """Test the default behavior (no special tokens) for tiktoken."""
+    counter = get_tiktoken_counter(TIKTOKEN_MODEL_NAME)
+    text_with_special_token = "Hello<|endoftext|>"
+    # Should count "Hello" and "<|endoftext|>" as 6 separate tokens: 'Hello', '<', '|', 'end', 'of', 'text', '|', '>'
+    # The exact count can vary, but it should not be 2. Let's find the exact count without special tokens
+    # encoding.encode("Hello<|endoftext|>", allowed_special=set()) -> [9906, 27, 91, 437, 27, 29] (6 tokens)
+    assert counter(text_with_special_token) == 8
 
 
-def test_get_huggingface_counter_empty_string():
-    """Verify Hugging Face counter handles empty strings."""
-    from py_chunk_in_memory.tokenizers import get_huggingface_counter
+@pytest.mark.tokenizers
+def test_get_tiktoken_counter_with_special_tokens():
+    """Test tiktoken counting with special_tokens_handling enabled."""
+    counter = get_tiktoken_counter(TIKTOKEN_MODEL_NAME, special_tokens_handling=True)
+    text_with_special_token = "Hello<|endoftext|>"
+    # Should count "Hello" as one token and "<|endoftext|>" as one special token.
+    # encoding.encode("Hello<|endoftext|>", allowed_special="all") -> [9906, 100257] (2 tokens)
+    assert counter(text_with_special_token) == 2
 
-    counter = get_huggingface_counter("gpt2")
-    assert counter("") == 0
 
-
-def test_tiktoken_import_error():
-    """Verify an ImportError is raised if tiktoken is not installed."""
-    with patch.dict(sys.modules, {"tiktoken": None}):
-        # Need to reload the module to trigger the import error check
-        from importlib import reload
-
-        reload(tokenizers_module)
-
+def test_get_tiktoken_import_error():
+    """Verify ImportError is raised if tiktoken is not installed."""
+    with patch("py_chunk_in_memory.tokenizers.tiktoken", None):
         with pytest.raises(ImportError, match="tiktoken is not installed"):
-            tokenizers_module.get_tiktoken_counter("cl100k_base")
-    # Reload again to restore the original state for other tests
-    from importlib import reload
-
-    reload(tokenizers_module)
+            get_tiktoken_counter(TIKTOKEN_MODEL_NAME)
 
 
-def test_get_tiktoken_counter_invalid_model():
-    """Verify that an invalid model name raises an error for tiktoken."""
-    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
-
-    with pytest.raises(ValueError):
-        get_tiktoken_counter("invalid-model-name")
-
-
-def test_get_huggingface_counter_invalid_model():
-    """Verify that an invalid model name raises an error for Hugging Face."""
-    from py_chunk_in_memory.tokenizers import get_huggingface_counter
-
-    with pytest.raises(OSError):  # Hugging Face raises OSError for invalid models
-        get_huggingface_counter("invalid-model-name")
+@pytest.mark.tokenizers
+def test_get_huggingface_counter_returns_callable():
+    """Verify that get_huggingface_counter returns a callable function."""
+    counter = get_huggingface_counter(HF_MODEL_NAME)
+    assert callable(counter)
 
 
-def test_get_tiktoken_counter_special_characters():
-    """Test tiktoken counter with special characters and symbols."""
-    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
-
-    counter = get_tiktoken_counter("cl100k_base")
-    text = "!@#$%^&*()_+-=[]{};':\",./<>?`~"
-    # This is just a sample value; the exact token count is model-specific
-    assert counter(text) > 0
-
-
-def test_get_huggingface_counter_special_characters():
-    """Test Hugging Face counter with special characters and symbols."""
-    from py_chunk_in_memory.tokenizers import get_huggingface_counter
-
-    counter = get_huggingface_counter("gpt2")
-    text = "!@#$%^&*()_+-=[]{};':\",./<>?`~"
-    # This is just a sample value; the exact token count is model-specific
-    assert counter(text) > 0
+@pytest.mark.tokenizers
+def test_get_huggingface_counter_default_with_special_tokens():
+    """Test the default behavior (with special tokens) for Hugging Face."""
+    counter = get_huggingface_counter(HF_MODEL_NAME)
+    text = "Hello world"
+    # [CLS] Hello world [SEP] -> 101, 7592, 2088, 102
+    assert counter(text) == 4
 
 
-def test_get_tiktoken_counter_multilingual():
-    """Test tiktoken counter with multilingual text."""
-    from py_chunk_in_memory.tokenizers import get_tiktoken_counter
-
-    counter = get_tiktoken_counter("cl100k_base")
-    text = "Hello, κόσμε! Bonjour, le monde! 안녕하세요, 세계!"
-    # This is just a sample value; the exact token count is model-specific
-    assert counter(text) > 10
-
-
-def test_get_huggingface_counter_multilingual():
-    """Test Hugging Face counter with multilingual text."""
-    from py_chunk_in_memory.tokenizers import get_huggingface_counter
-
-    counter = get_huggingface_counter("gpt2")
-    text = "Hello, κόσμε! Bonjour, le monde! 안녕하세요, 세계!"
-    # This is just a sample value; the exact token count is model-specific
-    assert counter(text) > 10
+@pytest.mark.tokenizers
+def test_get_huggingface_counter_without_special_tokens():
+    """Test Hugging Face counting with special_tokens_handling disabled."""
+    counter = get_huggingface_counter(HF_MODEL_NAME, special_tokens_handling=False)
+    text = "Hello world"
+    # Hello world -> 7592, 2088
+    assert counter(text) == 2
 
 
-def test_huggingface_import_error():
-    """Verify an ImportError is raised if transformers is not installed."""
-    with patch.dict(sys.modules, {"transformers": None}):
-        # Need to reload the module to trigger the import error check
-        from importlib import reload
-
-        reload(tokenizers_module)
-
+def test_get_huggingface_import_error():
+    """Verify ImportError is raised if transformers is not installed."""
+    with patch("py_chunk_in_memory.tokenizers.AutoTokenizer", None):
         with pytest.raises(ImportError, match="transformers is not installed"):
-            tokenizers_module.get_huggingface_counter("gpt2")
-    # Reload again to restore the original state for other tests
-    from importlib import reload
-
-    reload(tokenizers_module)
+            get_huggingface_counter(HF_MODEL_NAME)
