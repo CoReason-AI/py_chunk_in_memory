@@ -75,3 +75,32 @@ class WhitespaceNormalizer(PreprocessorStep):
             processed_text = re.sub(r"\n+", " ", processed_text)
 
         return processed_text
+
+
+class UnicodeNormalizer(PreprocessorStep):
+    """
+    A preprocessor for applying Unicode normalization to a text.
+
+    This is useful for ensuring that text is in a consistent, canonical form,
+    which is important for accurate tokenization and embedding.
+    """
+
+    def __init__(self, form: str = "NFC"):
+        """
+        Initializes the UnicodeNormalizer.
+
+        Args:
+            form: The normalization form to apply. One of 'NFC', 'NFKC',
+                  'NFD', 'NFKD'. Defaults to 'NFC'.
+        """
+        if form not in ["NFC", "NFKC", "NFD", "NFKD"]:
+            raise ValueError("form must be one of 'NFC', 'NFKC', 'NFD', 'NFKD'.")
+        self.form = form
+
+    def process(self, text: str) -> str:
+        """
+        Applies the specified Unicode normalization form to the text.
+        """
+        import unicodedata
+
+        return unicodedata.normalize(self.form, text)
