@@ -14,6 +14,7 @@ from py_chunk_in_memory.preprocessors import (
     WhitespaceNormalizer,
     UnicodeNormalizer,
     ArtifactRemover,
+    DehyphenationPreprocessor,
 )
 
 
@@ -218,3 +219,52 @@ class TestArtifactRemover:
         text = "A simple string."
         remover = ArtifactRemover(patterns=[r"\d{5}", r"Chapter \d+"])
         assert remover.process(text) == text
+
+
+class TestDehyphenationPreprocessor:
+    """Unit tests for the DehyphenationPreprocessor."""
+
+    def test_empty_string(self):
+        """Test that an empty string remains empty."""
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process("") == ""
+
+    def test_no_hyphens(self):
+        """Test that text without any hyphens is unchanged."""
+        text = "This is a sentence without hyphens.\nIt has a newline."
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process(text) == text
+
+    def test_standard_dehyphenation(self):
+        """Test a standard case of a word hyphenated across a newline."""
+        text = "This is a very long word that has been hyphen-\nated."
+        expected = "This is a very long word that has been hyphenated."
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process(text) == expected
+
+    def test_multiple_dehyphenations(self):
+        """Test multiple hyphenated words in the same text."""
+        text = "This is anoth-\ner example of a hyphen-\nated word."
+        expected = "This is another example of a hyphenated word."
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process(text) == expected
+
+    def test_hyphen_not_at_end_of_line(self):
+        """Test that a hyphen not followed by a newline is ignored."""
+        text = "This is a compound word: state-of-the-art."
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process(text) == text
+
+    def test_text_ending_with_hyphen_and_newline(self):
+        """Test the case where the text ends with a hyphenated newline."""
+        text = "The story is unfinish-\n"
+        expected = "The story is unfinish"
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process(text) == expected
+
+    def test_dehyphenation_with_whitespace(self):
+        """Test de-hyphenation with whitespace around the hyphen and newline."""
+        text = "This is a word that was split with extra space: hyphen- \n ated."
+        expected = "This is a word that was split with extra space: hyphenated."
+        preprocessor = DehyphenationPreprocessor()
+        assert preprocessor.process(text) == expected
