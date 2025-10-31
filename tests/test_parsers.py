@@ -13,11 +13,13 @@ from unittest.mock import patch
 
 import pytest
 
+from py_chunk_in_memory.models import Element
 from py_chunk_in_memory.parsers import IDRParser
 
 # Try to import MarkdownParser; skip tests if it fails (e.g., mistune not installed)
 try:
     from py_chunk_in_memory.parsers import MarkdownParser
+
     MISTUNE_INSTALLED = True
 except ImportError:
     MISTUNE_INSTALLED = False
@@ -45,8 +47,8 @@ def test_idr_parser_parse_method_raises_not_implemented() -> None:
     """Verify that the abstract chunk method raises NotImplementedError."""
 
     class ConcreteParser(IDRParser):
-        def parse(self, text: str) -> str:
-            return super().parse(text)  # type: ignore [safe-super]
+        def parse(self, text: str) -> Element:
+            return super().parse(text)  # type: ignore[safe-super]
 
     parser = ConcreteParser()
     with pytest.raises(NotImplementedError):
@@ -65,6 +67,7 @@ class TestMarkdownParser:
             # Need to reload the module to trigger the import error
             import importlib
             from py_chunk_in_memory import parsers
+
             importlib.reload(parsers)
             with pytest.raises(
                 ImportError,
@@ -74,7 +77,6 @@ class TestMarkdownParser:
                 parsers.MarkdownParser()
             # Restore the original module
             importlib.reload(parsers)
-
 
     def test_simple_paragraph(self) -> None:
         """Test parsing of a simple paragraph."""
@@ -199,7 +201,9 @@ class TestMarkdownParser:
         # This is a bit complex due to how mistune creates text and inline elements
         # A simpler approach is to check the concatenated text content
 
-        text_parts = [child.text for child in paragraph.children if hasattr(child, 'text')]
+        text_parts = [
+            child.text for child in paragraph.children if hasattr(child, "text")
+        ]
         assert "".join(text_parts) == "This is bold, italic, and code."
 
         element_types = [child.type for child in paragraph.children]

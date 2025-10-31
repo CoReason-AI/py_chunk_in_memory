@@ -56,6 +56,7 @@ class Element:
     text: str = ""
     parent: Optional["Element"] = field(default=None, repr=False)
     children: List["Element"] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def add_child(self, child: "Element"):
         """Adds a child element and sets its parent to this element."""

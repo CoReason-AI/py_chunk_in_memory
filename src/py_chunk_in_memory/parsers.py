@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from py_chunk_in_memory.models import Element
 
@@ -52,7 +52,9 @@ if mistune:
             self.root = Element(type="root")
             self.stack: List[Element] = [self.root]
 
-        def __call__(self, tokens: List[Dict[str, Any]], state: Dict[str, Any]) -> Element:
+        def __call__(
+            self, tokens: List[Dict[str, Any]], state: Dict[str, Any]
+        ) -> Element:
             self.render(tokens, state)
             return self.root
 
@@ -92,7 +94,9 @@ if mistune:
             element = Element(type="li")
             self._get_current_parent().add_child(element)
 
-        def block_code(self, code: str, info: Optional[str], state: Dict[str, Any]) -> None:
+        def block_code(
+            self, code: str, info: Optional[str], state: Dict[str, Any]
+        ) -> None:
             element = Element(type="code_block", text=code)
             if info:
                 element.metadata = {"language": info.strip()}
@@ -110,7 +114,9 @@ if mistune:
             element = Element(type="table_row")
             self._get_current_parent().add_child(element)
 
-        def table_cell(self, text: str, align: Optional[str], head: bool, state: Dict[str, Any]) -> None:
+        def table_cell(
+            self, text: str, align: Optional[str], head: bool, state: Dict[str, Any]
+        ) -> None:
             cell_type = "table_header" if head else "table_cell"
             element = Element(type=cell_type)
             if align:
@@ -125,14 +131,26 @@ if mistune:
             element = Element(type="strong", text=text)
             self._get_current_parent().add_child(element)
 
-        def link(self, link: str, text: Optional[str] = None, title: Optional[str] = None, state: Optional[Dict[str, Any]] = None) -> None:
+        def link(
+            self,
+            link: str,
+            text: Optional[str] = None,
+            title: Optional[str] = None,
+            state: Optional[Dict[str, Any]] = None,
+        ) -> None:
             element = Element(type="link", text=text or "")
             element.metadata = {"url": link}
             if title:
                 element.metadata["title"] = title
             self._get_current_parent().add_child(element)
 
-        def image(self, src: str, alt: str = "", title: Optional[str] = None, state: Optional[Dict[str, Any]] = None) -> None:
+        def image(
+            self,
+            src: str,
+            alt: str = "",
+            title: Optional[str] = None,
+            state: Optional[Dict[str, Any]] = None,
+        ) -> None:
             element = Element(type="image", text=alt)
             element.metadata = {"src": src}
             if title:
@@ -142,13 +160,12 @@ if mistune:
         def codespan(self, text: str, state: Optional[Dict[str, Any]] = None) -> None:
             self._get_current_parent().add_child(Element(type="codespan", text=text))
 
-
     class MarkdownParser(IDRParser):
         """A parser for converting Markdown documents into an Intermediate Document
         Representation (IDR) tree."""
 
         def __init__(self) -> None:
-            if mistune is None: # This check is for mypy, but the class is guarded
+            if mistune is None:  # This check is for mypy, but the class is guarded
                 raise ImportError(
                     "mistune is not installed. Please install it with "
                     "`pip install py_chunk_in_memory[structured]`"
