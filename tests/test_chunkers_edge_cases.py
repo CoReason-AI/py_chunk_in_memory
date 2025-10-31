@@ -113,3 +113,75 @@ def test_sentence_chunker_with_quoted_sentences():
     # The entire text should be considered a single sentence.
     assert len(chunks) == 1
     assert chunks[0].text_for_generation == text
+
+
+def test_recursive_chunker_handles_invalid_regex_separator():
+    """
+    Test that the RecursiveCharacterChunker handles invalid regex separators
+    gracefully by falling back to character-by-character splitting.
+    This covers the `re.error` exception block.
+    """
+    text = "hello"
+    # An unterminated character set '[' is an invalid regex
+    chunker = RecursiveCharacterChunker(chunk_size=2, separators=["["])
+    chunks = list(chunker.chunk(text))
+
+    # Should fall back to splitting by character and merge them into chunks of size 2
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "he"
+    assert chunks[1].text_for_generation == "ll"
+    assert chunks[2].text_for_generation == "o"
+
+
+def test_fixed_size_chunker_full_chunk_is_less_than_overlap():
+    """
+    Test the edge case where a generated chunk's text is smaller than the overlap.
+    This covers the `if start_of_overlap <= start_char:` condition where the
+    overlap scan completes without finding a suitable overlap point.
+    """
+
+    def length_function(text: str) -> int:
+        # 'X' is an oversized character that forces a chunk boundary
+        return 100 if "X" in text else len(text)
+
+    text = "abcdXefg"
+    # The first chunk will be "abcd" (length 4) because X is oversized.
+    # The configured overlap is 5. Since 4 < 5, the overlap logic will
+    # scan the entire "abcd" string and find no valid overlap.
+    # The next chunk should therefore start immediately after "abcd", at 'X'.
+    chunker = FixedSizeChunker(
+        chunk_size=10, chunk_overlap=5, length_function=length_function
+    )
+    chunks = list(chunker.chunk(text))
+
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "abcd"
+    assert chunks[1].text_for_generation == "X"
+    assert chunks[2].text_for_generation == "efg"
+
+
+def test_recursive_chunker_final_coverage():
+    """
+    Final targeted test to cover the last two lines in RecursiveCharacterChunker.
+    - Line 267 (keep_separator=False)
+    - Line 315 (overlap break)
+    """
+    text = "a b c d e"
+    # Splits (no separator): ["a", "b", "c", "d", "e"] (all length 1)
+    # Chunk size 3, overlap 2
+    # 1. Merge "a", "b", "c" -> "abc" (length 3).
+    # 2. Overlap:
+    #    - take "c" (len 1), overlap_len = 1
+    #    - take "b" (len 1), overlap_len = 2
+    #    - take "a" (len 1), 2+1 > 2 -> BREAK (this hits line 315)
+    # 3. Next chunk starts with overlap ("bc") and adds "d", "e"
+    chunker = RecursiveCharacterChunker(
+        chunk_size=3, chunk_overlap=2, separators=[" "], keep_separator=False
+    )
+    chunks = list(chunker.chunk(text))
+
+    # The logic produces three chunks: "abc", "bcd", "cde"
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "abc"
+    assert chunks[1].text_for_generation == "bcd"
+    assert chunks[2].text_for_generation == "cde"

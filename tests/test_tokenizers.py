@@ -52,7 +52,7 @@ def test_get_tiktoken_counter_with_special_tokens():
 
 def test_get_tiktoken_import_error():
     """Verify ImportError is raised if tiktoken is not installed."""
-    with patch("py_chunk_in_memory.tokenizers.tiktoken", None):
+    with patch.dict("sys.modules", {"tiktoken": None}):
         with pytest.raises(ImportError, match="tiktoken is not installed"):
             get_tiktoken_counter(TIKTOKEN_MODEL_NAME)
 
@@ -84,6 +84,6 @@ def test_get_huggingface_counter_without_special_tokens():
 
 def test_get_huggingface_import_error():
     """Verify ImportError is raised if transformers is not installed."""
-    with patch("py_chunk_in_memory.tokenizers.AutoTokenizer", None):
+    with patch.dict("sys.modules", {"transformers": None}):
         with pytest.raises(ImportError, match="transformers is not installed"):
             get_huggingface_counter(HF_MODEL_NAME)
