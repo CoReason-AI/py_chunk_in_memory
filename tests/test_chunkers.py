@@ -560,6 +560,54 @@ def test_fixed_size_chunker_avoids_empty_chunk():
     assert chunks[1].text_for_generation == "b"
 
 
+def test_fixed_size_chunker_avoids_empty_chunk_on_stateful_length_function():
+    """
+    Verify FixedSizeChunker avoids creating an empty chunk when a character
+    becomes oversized only after the initial scan. This covers the edge case
+    of the `if not chunk_text: break` line.
+    """
+    call_count = 0
+
+    def length_function(text: str) -> int:
+        nonlocal call_count
+        call_count += 1
+        # The pre-scan for "a", "b", "c" will pass
+        if call_count <= 3:
+            return 1
+        # The main scan's first check on "a" will fail, making it oversized
+        if text == "a":
+            return 100
+        return len(text)
+
+    text = "abc"
+    chunker = FixedSizeChunker(chunk_size=10, length_function=length_function)
+    # The oversized 'a' should be chunked, but then the process should stop,
+    # resulting in an empty chunk for the remainder, which should be ignored.
+    chunks = list(chunker.chunk(text))
+    assert len(chunks) == 0
+
+
+def test_recursive_chunker_uses_fallback_separator_for_oversized_text():
+    """
+    Test that the recursive chunker correctly uses the fallback "" separator
+    to split a text that has no other separators and is larger than the chunk
+    size. This covers the `if not separator:` line.
+    """
+    text_without_separators = "a" * 20
+    # The initial split of the text is oversized, triggering recursion.
+    # Since "\n" is not found, the chunker recurses with the next separator, "",
+    # which forces a character-by-character split.
+    chunker = RecursiveCharacterChunker(
+        chunk_size=8, separators=["\n", ""], keep_separator=True
+    )
+    chunks = list(chunker.chunk(text_without_separators))
+
+    assert len(chunks) == 3
+    assert chunks[0].text_for_generation == "a" * 8
+    assert chunks[1].text_for_generation == "a" * 8
+    assert chunks[2].text_for_generation == "a" * 4
+
+
 def test_fixed_size_chunker_propagates_source_metadata():
     """Verify FixedSizeChunker correctly propagates source_metadata."""
     text = "This is a test string for metadata propagation."
