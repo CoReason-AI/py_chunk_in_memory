@@ -21,12 +21,15 @@ except ImportError:
     AutoTokenizer = None
 
 
-def get_tiktoken_counter(model_name: str) -> Callable[[str], int]:
+def get_tiktoken_counter(
+    model_name: str, special_tokens_handling: bool = False
+) -> Callable[[str], int]:
     """
     Returns a function that counts tokens for a given text using a tiktoken model.
 
     Args:
         model_name: The name of the tiktoken model to use.
+        special_tokens_handling: If True, accounts for special tokens in the count.
 
     Returns:
         A function that takes a string and returns the number of tokens.
@@ -39,17 +42,22 @@ def get_tiktoken_counter(model_name: str) -> Callable[[str], int]:
     encoding = tiktoken.get_encoding(model_name)
 
     def counter(text: str) -> int:
-        return len(encoding.encode(text))
+        if special_tokens_handling:
+            return len(encoding.encode(text, allowed_special="all"))
+        return len(encoding.encode(text, disallowed_special=()))
 
     return counter
 
 
-def get_huggingface_counter(model_name_or_path: str) -> Callable[[str], int]:
+def get_huggingface_counter(
+    model_name_or_path: str, special_tokens_handling: bool = True
+) -> Callable[[str], int]:
     """
     Returns a function that counts tokens for a given text using a Hugging Face model.
 
     Args:
         model_name_or_path: The name or path of the Hugging Face model to use.
+        special_tokens_handling: If True (default), accounts for special tokens.
 
     Returns:
         A function that takes a string and returns the number of tokens.
@@ -62,6 +70,6 @@ def get_huggingface_counter(model_name_or_path: str) -> Callable[[str], int]:
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
 
     def counter(text: str) -> int:
-        return len(tokenizer.encode(text))
+        return len(tokenizer.encode(text, add_special_tokens=special_tokens_handling))
 
     return counter
