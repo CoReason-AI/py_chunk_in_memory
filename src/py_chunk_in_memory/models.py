@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 
@@ -42,3 +42,22 @@ class Chunk:
 
     # FRD R-2.1.5: Metadata Propagation
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Element:
+    """
+    Represents a node in the Intermediate Document Representation (IDR),
+    forming a tree structure that captures the document's hierarchy.
+    """
+
+    id: UUID = field(default_factory=uuid4)
+    type: str = "text"
+    text: str = ""
+    parent: Optional["Element"] = field(default=None, repr=False)
+    children: List["Element"] = field(default_factory=list)
+
+    def add_child(self, child: "Element"):
+        """Adds a child element and sets its parent to this element."""
+        child.parent = self
+        self.children.append(child)
