@@ -8,6 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/py_chunk_in_memory
 
+import re
 from abc import ABC, abstractmethod
 
 
@@ -57,8 +58,6 @@ class WhitespaceNormalizer(PreprocessorStep):
         """
         Applies whitespace normalization to the text.
         """
-        import re
-
         # 1. Trim leading/trailing whitespace
         processed_text = text.strip()
 
@@ -135,3 +134,18 @@ class ArtifactRemover(PreprocessorStep):
         for pattern, repl in self.patterns:
             processed_text = pattern.sub(repl, processed_text)
         return processed_text
+
+
+class DehyphenationPreprocessor(PreprocessorStep):
+    """
+    A preprocessor to correct words that have been hyphenated across line or
+    page breaks.
+    """
+
+    def process(self, text: str) -> str:
+        """
+        Detects and joins hyphenated words that are split across newlines.
+        """
+        # This regex looks for a hyphen followed by optional whitespace and a
+        # newline, and replaces it with an empty string to join the word.
+        return re.sub(r"-\s*\n\s*", "", text)
