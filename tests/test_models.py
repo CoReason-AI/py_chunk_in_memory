@@ -11,7 +11,7 @@
 """Tests for the data models in the package."""
 
 import uuid
-from py_chunk_in_memory.models import Chunk
+from py_chunk_in_memory.models import Chunk, Element
 
 
 def test_chunk_creation_defaults():
@@ -115,3 +115,65 @@ def test_chunk_edge_cases():
         text_for_generation="text", hierarchical_context=complex_context
     )
     assert chunk_with_context.hierarchical_context == complex_context
+
+
+def test_element_creation_defaults():
+    """Verify that an Element can be created with minimal arguments and defaults are set."""
+    element = Element()
+
+    assert isinstance(element.id, uuid.UUID)
+    assert element.type == "text"
+    assert element.text == ""
+    assert element.parent is None
+    assert element.children == []
+
+
+def test_element_creation_with_all_fields():
+    """Verify that an Element can be created with all fields specified."""
+    element_id = uuid.uuid4()
+    parent = Element(type="root")
+    child = Element(type="child")
+
+    element = Element(
+        id=element_id,
+        type="paragraph",
+        text="This is a paragraph.",
+        parent=parent,
+        children=[child],
+    )
+
+    assert element.id == element_id
+    assert element.type == "paragraph"
+    assert element.text == "This is a paragraph."
+    assert element.parent == parent
+    assert element.children == [child]
+
+
+def test_element_add_child():
+    """Verify the add_child method correctly establishes the parent-child relationship."""
+    parent = Element(type="section")
+    child1 = Element(type="p", text="First paragraph.")
+    child2 = Element(type="p", text="Second paragraph.")
+
+    parent.add_child(child1)
+    parent.add_child(child2)
+
+    assert len(parent.children) == 2
+    assert parent.children[0] == child1
+    assert parent.children[1] == child2
+    assert child1.parent == parent
+    assert child2.parent == parent
+
+
+def test_element_default_factories_are_independent():
+    """Verify that default factories create unique objects for each instance."""
+    el1 = Element()
+    el2 = Element()
+
+    assert el1.id != el2.id
+    assert el1.children is not el2.children
+
+    # Modify children of one to ensure it doesn't affect the other
+    el1.add_child(Element())
+    assert len(el1.children) == 1
+    assert len(el2.children) == 0
